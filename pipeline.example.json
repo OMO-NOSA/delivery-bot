@@ -1,0 +1,23 @@
+{
+  "name": "sample",
+  "repo_url": "https://github.com/example/repo",
+  "branch": "main",
+  "steps": [
+    {
+      "name": "lint",
+      "type": "run",
+      "command": "make lint"
+    },
+    {
+      "name": "build",
+      "type": "build",
+      "dockerfile": "Dockerfile",
+      "ecr_repo": "example/repo"
+    },
+    {
+      "name": "deploy",
+      "type": "deploy",
+      "manifest": "k8s/deploy.yaml"
+    }
+  ]
+}

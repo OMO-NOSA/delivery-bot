@@ -1,0 +1,27 @@
+
+name: sample-pipeline
+on:
+  workflow_dispatch:
+    inputs:
+      pipeline_id:
+        description: 'Pipeline ID from API'
+        required: true
+      repo_url:
+        description: 'Repo URL'
+        required: true
+      branch:
+        description: 'Branch'
+        required: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Simulated Lint
+        run: echo "Lint OK for ${{ inputs.repo_url }}"
+      - name: Simulated Build
+        run: echo "Built and pushed image for ${{ inputs.repo_url }}:${{ inputs.branch }}"
+      - name: Simulated Deploy
+        run: echo "Applied manifest to cluster for ${{ inputs.repo_url }}"

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "delivery-bot"
+version = "0.1.0"
+description = "Minimal Delivery-Bot API with simulated execution and a utility CLI."
+authors = [{name="Nosa Omorodion", email="example@gmail.com"}]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.1",
+    "typer>=0.12.0",
+    "requests>=2.32.0",
+    "rich>=13.7.0",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.5.0",
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "mypy>=1.10.0",
+]
+
+# ---- Setuptools (flat layout: api/ and cli/ at repo root) ----
+[tool.setuptools.packages.find]
+include = ["api*", "cli*"]
+exclude = ["tests*", "docs*", "scripts*", ".github*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["api", "cli"]
