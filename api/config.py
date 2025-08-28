@@ -1,4 +1,3 @@
-
 """
 Configuration Management for Delivery-Bot API.
 
@@ -77,9 +76,7 @@ class Settings(BaseSettings):
     github_auto_create_workflow: bool = True
 
     model_config = SettingsConfigDict(
-        env_prefix="APP_",
-        env_file=".env",
-        env_file_encoding="utf-8"
+        env_prefix="APP_", env_file=".env", env_file_encoding="utf-8"
     )
 
 
@@ -88,6 +85,7 @@ settings = Settings()
 
 # Debug: Log what was loaded
 import logging
+
 logger = logging.getLogger("cicd")
 logger.info(
     "Configuration loaded",
@@ -100,7 +98,7 @@ logger.info(
             "github_ref": settings.github_ref,
             "github_auto_create_workflow": settings.github_auto_create_workflow,
             "env_file": ".env",
-            "env_prefix": "APP_"
+            "env_prefix": "APP_",
         }
-    }
+    },
 )

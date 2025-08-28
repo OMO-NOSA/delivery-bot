@@ -1,4 +1,3 @@
-
 """
 Data Models for Delivery-Bot API.
 
@@ -83,9 +82,7 @@ class Step(BaseModel):
     dockerfile: Optional[str] = Field(
         None, description="Path to Dockerfile for 'build' steps"
     )
-    ecr_repo: Optional[str] = Field(
-        None, description="ECR repo name for 'build' steps"
-    )
+    ecr_repo: Optional[str] = Field(None, description="ECR repo name for 'build' steps")
     manifest: Optional[str] = Field(
         None, description="Path to k8s manifest for 'deploy' steps"
     )
@@ -115,6 +112,7 @@ class Step(BaseModel):
         if self.type == StepType.deploy and not self.manifest:
             raise ValueError("`manifest` is required for step type 'deploy'")
         return self
+
 
 class Pipeline(BaseModel):
     """

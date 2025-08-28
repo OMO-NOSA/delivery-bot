@@ -1,4 +1,3 @@
-
 """
 Pipeline Execution Engine for Delivery-Bot API.
 
@@ -30,7 +29,7 @@ from datetime import datetime
 from .models import Pipeline, Run, RunStatus, Step, StepType
 from .storage import db
 
-logger = logging.getLogger('cicd')
+logger = logging.getLogger("cicd")
 
 
 async def simulate_step(run: Run, step: Step, index: int) -> None:
@@ -64,6 +63,7 @@ async def simulate_step(run: Run, step: Step, index: int) -> None:
         This is a simulation for demo purposes. In a real implementation,
         this would execute actual commands, Docker builds, etc.
     """
+
     async def log(msg: str) -> None:
         """Add a log message and update the run in storage."""
         run.logs.append(msg)
@@ -81,16 +81,16 @@ async def simulate_step(run: Run, step: Step, index: int) -> None:
 
     elif step.type == StepType.build:
         # Simulate Docker image build and push
-        dockerfile = step.dockerfile or 'Dockerfile'
-        ecr_repo = step.ecr_repo or 'ecr://example'
+        dockerfile = step.dockerfile or "Dockerfile"
+        ecr_repo = step.ecr_repo or "ecr://example"
         await log(f"Building Docker image from {dockerfile} and pushing to {ecr_repo}")
         await asyncio.sleep(1.5)  # Build steps take longer
         await log("Image built and pushed successfully")
-        logger.info('build_step_complete')  # Additional structured logging
+        logger.info("build_step_complete")  # Additional structured logging
 
     elif step.type == StepType.deploy:
         # Simulate Kubernetes deployment
-        manifest = step.manifest or 'k8s/deploy.yaml'
+        manifest = step.manifest or "k8s/deploy.yaml"
         await log(f"Applying manifest {manifest} to cluster")
         await asyncio.sleep(1.0)  # Simulate deployment time
         await log("Deployment applied")

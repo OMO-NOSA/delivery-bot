@@ -1,4 +1,3 @@
-
 """
 Delivery-Bot API Main Module.
 
@@ -47,10 +46,11 @@ app = FastAPI(title=settings.api_title, version=settings.api_version)
 logger = logging.getLogger("cicd")
 if not logger.handlers:
     handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -74,7 +74,7 @@ async def log_requests(request: Request, call_next):
         return response
     finally:
         duration_ms = (time.perf_counter() - start) * 1000
-        status = getattr(locals().get('response', None), 'status_code', 500)
+        status = getattr(locals().get("response", None), "status_code", 500)
         logger.info(
             "request",
             extra={
@@ -82,9 +82,9 @@ async def log_requests(request: Request, call_next):
                     "method": request.method,
                     "path": request.url.path,
                     "status": status,
-                    "duration_ms": int(duration_ms)
+                    "duration_ms": int(duration_ms),
                 }
-            }
+            },
         )
 
 
@@ -131,6 +131,7 @@ class CreatePipelineRequest(BaseModel):
     branch: str = "main"
     steps: List[Step]
 
+
 @app.post("/pipelines", response_model=Pipeline, status_code=201)
 def create_pipeline(req: CreatePipelineRequest):
     """
@@ -150,19 +151,17 @@ def create_pipeline(req: CreatePipelineRequest):
         HTTPException: 422 if validation fails for any field or step configuration
     """
     pipeline = Pipeline(
-        name=req.name,
-        repo_url=req.repo_url,
-        branch=req.branch,
-        steps=req.steps
+        name=req.name, repo_url=req.repo_url, branch=req.branch, steps=req.steps
     )
-    
+
     created_pipeline = db.create_pipeline(pipeline)
-    
+
     # GitHub Actions integration - create workflow and merge PR automatically
     if settings.github_token:
         try:
-            from .gh import create_and_merge_workflow_pr
             from urllib.parse import urlparse
+
+            from .gh import create_and_merge_workflow_pr
 
             # Extract owner and repo from user's repository URL
             parsed_url = urlparse(str(req.repo_url))
@@ -171,16 +170,20 @@ def create_pipeline(req: CreatePipelineRequest):
                 if len(path_parts) >= 2:
                     user_owner = path_parts[0]
                     user_repo = path_parts[1]
-                    
+
                     # Use a unique workflow name for each pipeline
                     workflow_name = f"pipeline-{created_pipeline.id}.yml"
-                    
+
                     # Create the workflow and merge the PR automatically
                     if settings.github_auto_create_workflow:
-                        logger.info(f"Attempting to create GitHub workflow for pipeline {created_pipeline.id} in {user_owner}/{user_repo}")
-                        logger.info(f"Using branch: {req.branch}, workflow name: {workflow_name}")
+                        logger.info(
+                            f"Attempting to create GitHub workflow for pipeline {created_pipeline.id} in {user_owner}/{user_repo}"
+                        )
+                        logger.info(
+                            f"Using branch: {req.branch}, workflow name: {workflow_name}"
+                        )
                         logger.info(f"Pipeline has {len(req.steps)} steps")
-                        
+
                         workflow_created = create_and_merge_workflow_pr(
                             user_owner,
                             user_repo,
@@ -188,23 +191,31 @@ def create_pipeline(req: CreatePipelineRequest):
                             req.branch,  # Use user's specified branch
                             settings.github_token,
                             created_pipeline.id,
-                            req.steps  # Pass the pipeline steps for dynamic workflow generation
+                            req.steps,  # Pass the pipeline steps for dynamic workflow generation
                         )
-                        
+
                         if workflow_created:
-                            logger.info(f"GitHub Actions workflow created and merged for pipeline {created_pipeline.id} in {user_owner}/{user_repo}")
+                            logger.info(
+                                f"GitHub Actions workflow created and merged for pipeline {created_pipeline.id} in {user_owner}/{user_repo}"
+                            )
                         else:
-                            logger.warning(f"Failed to create/merge GitHub Actions workflow for pipeline {created_pipeline.id}")
+                            logger.warning(
+                                f"Failed to create/merge GitHub Actions workflow for pipeline {created_pipeline.id}"
+                            )
                     else:
                         logger.info("GitHub workflow auto-creation is disabled")
                 else:
-                    logger.warning(f"Invalid GitHub repository URL format: {req.repo_url}")
+                    logger.warning(
+                        f"Invalid GitHub repository URL format: {req.repo_url}"
+                    )
             else:
                 logger.warning(f"Repository is not on GitHub: {req.repo_url}")
-                
+
         except Exception as e:
-            logger.warning(f"GitHub integration failed for pipeline {created_pipeline.id}: {e}")
-    
+            logger.warning(
+                f"GitHub integration failed for pipeline {created_pipeline.id}: {e}"
+            )
+
     return created_pipeline
 
 
@@ -274,7 +285,7 @@ def update_pipeline(pipeline_id: str, req: CreatePipelineRequest):
         repo_url=req.repo_url,
         branch=req.branch,
         steps=req.steps,
-        created_at=current.created_at
+        created_at=current.created_at,
     )
     saved = db.update_pipeline(pipeline_id, updated)
     assert saved is not None, "Failed to update pipeline"
@@ -302,6 +313,7 @@ def delete_pipeline(pipeline_id: str):
     if not success:
         raise HTTPException(404, "Pipeline not found")
 
+
 class TriggerResponse(BaseModel):
     """
     Response model for pipeline trigger requests.
@@ -318,7 +330,9 @@ class TriggerResponse(BaseModel):
     status: RunStatus
 
 
-@app.post("/pipelines/{pipeline_id}/trigger", response_model=TriggerResponse, status_code=202)
+@app.post(
+    "/pipelines/{pipeline_id}/trigger", response_model=TriggerResponse, status_code=202
+)
 def trigger_pipeline(pipeline_id: str):
     """
     Trigger execution of a pipeline.
@@ -361,16 +375,21 @@ def trigger_pipeline(pipeline_id: str):
                 "github_token": "***MASKED***" if settings.github_token else None,
                 "github_workflow": settings.github_workflow,
                 "github_ref": settings.github_ref,
-                "integration_enabled": bool(settings.github_owner and settings.github_repo and settings.github_token)
+                "integration_enabled": bool(
+                    settings.github_owner
+                    and settings.github_repo
+                    and settings.github_token
+                ),
             }
-        }
+        },
     )
 
     # GitHub Actions integration - trigger workflow if it exists
     if settings.github_token:
         try:
-            from .gh import trigger_github_workflow, workflow_exists
             from urllib.parse import urlparse
+
+            from .gh import trigger_github_workflow, workflow_exists
 
             # Extract owner and repo from pipeline's repository URL
             parsed_url = urlparse(str(pipeline.repo_url))
@@ -379,22 +398,24 @@ def trigger_pipeline(pipeline_id: str):
                 if len(path_parts) >= 2:
                     user_owner = path_parts[0]
                     user_repo = path_parts[1]
-                    
+
                     # Use the pipeline-specific workflow name
                     workflow_name = f"pipeline-{pipeline.id}.yml"
-                    
+
                     # Check if the workflow exists
                     workflow_exists_check = workflow_exists(
                         user_owner,
                         user_repo,
                         workflow_name,
                         pipeline.branch,  # Use pipeline's specified branch
-                        settings.github_token
+                        settings.github_token,
                     )
-                    
+
                     if workflow_exists_check:
-                        run.logs.append(f"GitHub Actions workflow found in {user_owner}/{user_repo}, triggering...")
-                        
+                        run.logs.append(
+                            f"GitHub Actions workflow found in {user_owner}/{user_repo}, triggering..."
+                        )
+
                         # Trigger the existing workflow
                         status_code = trigger_github_workflow(
                             user_owner,
@@ -406,21 +427,29 @@ def trigger_pipeline(pipeline_id: str):
                                 "pipeline_id": pipeline.id,
                                 "repo_url": str(pipeline.repo_url),
                                 "branch": pipeline.branch,
-                                "environment": "staging"
+                                "environment": "staging",
                             },
                         )
-                        
+
                         if status_code == 204:
-                            run.logs.append("GitHub Actions workflow triggered successfully")
+                            run.logs.append(
+                                "GitHub Actions workflow triggered successfully"
+                            )
                         else:
-                            run.logs.append(f"GitHub Actions workflow trigger returned status code {status_code}")
+                            run.logs.append(
+                                f"GitHub Actions workflow trigger returned status code {status_code}"
+                            )
                     else:
-                        run.logs.append(f"GitHub Actions workflow not found in {user_owner}/{user_repo} - create pipeline first to generate workflow")
+                        run.logs.append(
+                            f"GitHub Actions workflow not found in {user_owner}/{user_repo} - create pipeline first to generate workflow"
+                        )
                 else:
-                    run.logs.append(f"Invalid GitHub repository URL format: {pipeline.repo_url}")
+                    run.logs.append(
+                        f"Invalid GitHub repository URL format: {pipeline.repo_url}"
+                    )
             else:
                 run.logs.append(f"Repository is not on GitHub: {pipeline.repo_url}")
-                
+
         except Exception as e:
             run.logs.append(f"GitHub integration error: {e}")
             logger.warning(f"GitHub integration failed for pipeline {pipeline.id}: {e}")
@@ -464,6 +493,7 @@ def get_run(run_id: str):
         raise HTTPException(404, "Run not found")
     return run
 
+
 # Exception handlers
 
 
@@ -491,7 +521,9 @@ async def validation_exception_handler(
             "type": error.get("type"),
             "loc": error.get("loc", []),
             "msg": str(error.get("msg", "")),
-            "input": str(error.get("input", "")) if error.get("input") is not None else None
+            "input": (
+                str(error.get("input", "")) if error.get("input") is not None else None
+            ),
         }
         # Handle context which might contain non-serializable objects
         if "ctx" in error and error["ctx"]:
@@ -500,12 +532,7 @@ async def validation_exception_handler(
 
     logger.warning(
         "validation_error",
-        extra={
-            "props": {
-                "path": request.url.path,
-                "errors": errors
-            }
-        }
+        extra={"props": {"path": request.url.path, "errors": errors}},
     )
     return JSONResponse(status_code=422, content={"detail": errors})
 
@@ -533,14 +560,11 @@ async def http_exception_handler(
             "props": {
                 "path": request.url.path,
                 "status": exc.status_code,
-                "detail": str(exc.detail)
+                "detail": str(exc.detail),
             }
-        }
+        },
     )
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail}
-    )
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.exception_handler(Exception)
@@ -560,7 +584,4 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         JSONResponse: 500 status with generic error message
     """
     logger.exception("unhandled_exception")
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal Server Error"}
-    )
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
