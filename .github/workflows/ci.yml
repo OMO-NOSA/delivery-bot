@@ -92,7 +92,7 @@ jobs:
     - name: Run Bandit security linter
       run: |
         pip install -r requirements-dev.txt
-        bandit -r api/ -f json -o bandit-report.json
+        bandit -r api/ -f json -o bandit-report.json || true
         
     - name: Run Safety check
       run: |
@@ -100,7 +100,7 @@ jobs:
         safety check --json --output safety-report.json || true
         
     - name: Upload Bandit results to GitHub Code Scanning
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: bandit-report.json

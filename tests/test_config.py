@@ -94,30 +94,46 @@ class TestSettings:
 
     def test_github_integration_enabled_with_current_config(self):
         """Test that GitHub integration is enabled with current .env configuration."""
-        from api.config import settings
+        with patch.dict(
+            os.environ,
+            {
+                "APP_GITHUB_OWNER": "test-owner",
+                "APP_GITHUB_REPO": "test-repo",
+                "APP_GITHUB_TOKEN": "test-token",
+            },
+        ):
+            from api.config import settings
 
-        # GitHub integration should be enabled when all required fields are set
-        is_enabled = all(
-            [settings.github_owner, settings.github_repo, settings.github_token]
-        )
-        assert is_enabled is True
+            # GitHub integration should be enabled when all required fields are set
+            is_enabled = all(
+                [settings.github_owner, settings.github_repo, settings.github_token]
+            )
+            assert is_enabled is True
 
     def test_github_configuration_structure(self):
         """Test that GitHub configuration has the expected structure."""
-        from api.config import settings
+        with patch.dict(
+            os.environ,
+            {
+                "APP_GITHUB_OWNER": "test-owner",
+                "APP_GITHUB_REPO": "test-repo",
+                "APP_GITHUB_TOKEN": "test-token",
+            },
+        ):
+            from api.config import settings
 
-        # All required GitHub fields should be present
-        assert settings.github_owner is not None
-        assert settings.github_repo is not None
-        assert settings.github_token is not None
-        assert settings.github_workflow == "pipeline.yml"
-        assert settings.github_ref == "main"
+            # All required GitHub fields should be present
+            assert settings.github_owner is not None
+            assert settings.github_repo is not None
+            assert settings.github_token is not None
+            assert settings.github_workflow == "pipeline.yml"
+            assert settings.github_ref == "main"
 
-        # Should be considered complete/enabled
-        is_enabled = all(
-            [settings.github_owner, settings.github_repo, settings.github_token]
-        )
-        assert is_enabled is True
+            # Should be considered complete/enabled
+            is_enabled = all(
+                [settings.github_owner, settings.github_repo, settings.github_token]
+            )
+            assert is_enabled is True
 
     def test_log_level_case_insensitive(self):
         """Test that log level handling works with different cases."""

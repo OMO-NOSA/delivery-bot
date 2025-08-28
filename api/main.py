@@ -288,7 +288,8 @@ def update_pipeline(pipeline_id: str, req: CreatePipelineRequest):
         created_at=current.created_at,
     )
     saved = db.update_pipeline(pipeline_id, updated)
-    assert saved is not None, "Failed to update pipeline"
+    if saved is None:
+        raise HTTPException(500, "Failed to update pipeline")
     return saved
 
 
