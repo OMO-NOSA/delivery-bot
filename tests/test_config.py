@@ -100,7 +100,8 @@ class TestSettings:
                 "APP_GITHUB_TOKEN": "test-token",
             },
         ):
-            from api.config import settings
+            # Create a new Settings instance to pick up the patched environment
+            settings = Settings()
 
             # GitHub integration should be enabled when all required fields are set
             is_enabled = all(
@@ -118,7 +119,8 @@ class TestSettings:
                 "APP_GITHUB_TOKEN": "test-token",
             },
         ):
-            from api.config import settings
+            # Create a new Settings instance to pick up the patched environment
+            settings = Settings()
 
             # All required GitHub fields should be present
             assert settings.github_owner is not None
