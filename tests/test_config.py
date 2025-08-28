@@ -17,12 +17,10 @@ class TestSettings:
         assert settings.allow_origins == ["*"]
         assert settings.log_level == "INFO"
 
-        # GitHub settings should have values from .env file
-        assert settings.github_owner is not None
-        assert settings.github_repo is not None
+        # GitHub settings should have default values when not configured
         assert settings.github_workflow == "pipeline.yml"
         assert settings.github_ref == "main"
-        assert settings.github_token is not None
+        # Note: github_owner, github_repo, and github_token may be None if not configured
 
     @patch.dict(
         os.environ,
