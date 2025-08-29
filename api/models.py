@@ -17,12 +17,17 @@ Classes:
 Author: Nosa Omorodion
 Version: 0.1.0
 """
+
 from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
+
 from pydantic import BaseModel, Field, HttpUrl, model_validator
+
+
 class StepType(str, Enum):
     """
     Enumeration of supported pipeline step types.
@@ -33,9 +38,12 @@ class StepType(str, Enum):
         build: Build and push Docker images to ECR
         deploy: Deploy applications using Kubernetes manifests
     """
+
     run = "run"
     build = "build"
     deploy = "deploy"
+
+
 class Step(BaseModel):
     """
     Configuration for a single pipeline step.
@@ -56,6 +64,7 @@ class Step(BaseModel):
         - 'deploy' steps require a manifest
         - timeout_seconds must be between 1 and 3600 seconds
     """
+
     name: str = Field(..., description="Name of the step")
     type: StepType
     command: Optional[str] = Field(
@@ -70,6 +79,7 @@ class Step(BaseModel):
     )
     timeout_seconds: int = Field(300, ge=1, le=3600)
     continue_on_error: bool = False
+
     @model_validator(mode="after")
     def _validate_by_type(self):
         """
@@ -90,6 +100,8 @@ class Step(BaseModel):
         if self.type == StepType.deploy and not self.manifest:
             raise ValueError("`manifest` is required for step type 'deploy'")
         return self
+
+
 class Pipeline(BaseModel):
     """
     Complete pipeline configuration and metadata.
@@ -107,6 +119,7 @@ class Pipeline(BaseModel):
         The id is automatically generated using UUID4 when creating new pipelines.
         Timestamps are automatically set and updated by the storage layer.
     """
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     repo_url: HttpUrl
@@ -114,6 +127,8 @@ class Pipeline(BaseModel):
     steps: List[Step] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class RunStatus(str, Enum):
     """
     Enumeration of possible pipeline run states.
@@ -128,11 +143,14 @@ class RunStatus(str, Enum):
     Note:
         State transitions typically follow: pending -> running -> (succeeded|failed|cancelled)
     """
+
     pending = "pending"
     running = "running"
     succeeded = "succeeded"
     failed = "failed"
     cancelled = "cancelled"
+
+
 class Run(BaseModel):
     """
     Pipeline execution instance with status and logs.
@@ -157,6 +175,7 @@ class Run(BaseModel):
         The id is automatically generated using UUID4 when creating new runs.
         Timing fields are managed by the pipeline runner during execution.
     """
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     pipeline_id: str
     status: RunStatus = RunStatus.pending

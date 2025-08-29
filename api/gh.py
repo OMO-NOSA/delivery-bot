@@ -22,28 +22,32 @@ Dependencies:
 Author: Nosa Omorodion
 Version: 0.2.0
 """
+
 import base64
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urljoin
+
 import requests
 from tenacity import (
     retry,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
 )
+
 logger = logging.getLogger(__name__)
 
 
 class GitHubAPIError(Exception):
     """Base exception for GitHub API errors."""
+
     def __init__(
         self,
         message: str,
         status_code: Optional[int] = None,
-        response_text: Optional[str] = None
+        response_text: Optional[str] = None,
     ):
         self.message = message
         self.status_code = status_code
@@ -53,28 +57,32 @@ class GitHubAPIError(Exception):
 
 class GitHubRateLimitError(GitHubAPIError):
     """Exception raised when GitHub API rate limit is exceeded."""
+
     pass
 
 
 class GitHubNotFoundError(GitHubAPIError):
     """Exception raised when a resource is not found."""
+
     pass
 
 
 class GitHubPermissionError(GitHubAPIError):
     """Exception raised when insufficient permissions."""
+
     pass
 
 
 class HTTPClient(ABC):
     """Abstract HTTP client interface for dependency injection."""
+
     @abstractmethod
     def get(
         self,
         url: str,
         headers: Dict[str, str],
         params: Optional[Dict[str, Any]] = None,
-        timeout: int = 15
+        timeout: int = 15,
     ) -> requests.Response:
         """Make a GET request."""
         pass
@@ -85,7 +93,7 @@ class HTTPClient(ABC):
         url: str,
         headers: Dict[str, str],
         json_data: Optional[Dict[str, Any]] = None,
-        timeout: int = 15
+        timeout: int = 15,
     ) -> requests.Response:
         """Make a POST request."""
         pass
@@ -96,7 +104,7 @@ class HTTPClient(ABC):
         url: str,
         headers: Dict[str, str],
         json_data: Optional[Dict[str, Any]] = None,
-        timeout: int = 15
+        timeout: int = 15,
     ) -> requests.Response:
         """Make a PUT request."""
         pass
@@ -104,12 +112,13 @@ class HTTPClient(ABC):
 
 class RequestsHTTPClient(HTTPClient):
     """Concrete HTTP client implementation using requests library."""
+
     def get(
         self,
         url: str,
         headers: Dict[str, str],
         params: Optional[Dict[str, Any]] = None,
-        timeout: int = 15
+        timeout: int = 15,
     ) -> requests.Response:
         return requests.get(url, headers=headers, params=params, timeout=timeout)
 
@@ -118,22 +127,27 @@ class RequestsHTTPClient(HTTPClient):
         url: str,
         headers: Dict[str, str],
         json_data: Optional[Dict[str, Any]] = None,
-        timeout: int = 15
+        timeout: int = 15,
     ) -> requests.Response:
         return requests.post(url, headers=headers, json=json_data, timeout=timeout)
+
     def put(
         self,
         url: str,
         headers: Dict[str, str],
         json_data: Optional[Dict[str, Any]] = None,
-        timeout: int = 15
+        timeout: int = 15,
     ) -> requests.Response:
         return requests.put(url, headers=headers, json=json_data, timeout=timeout)
+
+
 class GitHubClient:
     """Main client for GitHub API operations."""
+
     BASE_URL = "https://api.github.com"
     API_VERSION = "2022-11-28"
     USER_AGENT = "delivery-bot-api"
+
     def __init__(self, token: str, http_client: Optional[HTTPClient] = None):
         """
         Initialize GitHub client.
@@ -149,7 +163,11 @@ class GitHubClient:
             "X-GitHub-Api-Version": self.API_VERSION,
             "User-Agent": self.USER_AGENT,
         }
-        logger.info("GitHub client initialized", extra={"props": {"api_version": self.API_VERSION}})
+        logger.info(
+            "GitHub client initialized",
+            extra={"props": {"api_version": self.API_VERSION}},
+        )
+
     def _make_request(self, method: str, endpoint: str, **kwargs) -> requests.Response:
         """
         Make a request to GitHub API with retry logic.
@@ -164,10 +182,13 @@ class GitHubClient:
             GitHubRateLimitError: For rate limit errors
         """
         url = urljoin(self.BASE_URL, endpoint)
+
         @retry(
             stop=stop_after_attempt(3),
             wait=wait_exponential(multiplier=1, min=4, max=10),
-            retry=retry_if_exception_type((requests.RequestException, GitHubRateLimitError))
+            retry=retry_if_exception_type(
+                (requests.RequestException, GitHubRateLimitError)
+            ),
         )
         def _retry_request():
             logger.debug(f"Making {method} request to {url}")
@@ -182,17 +203,30 @@ class GitHubClient:
             # Handle rate limiting
             if response.status_code == 403 and "rate limit" in response.text.lower():
                 logger.warning("GitHub API rate limit exceeded")
-                raise GitHubRateLimitError("Rate limit exceeded", response.status_code, response.text)
+                raise GitHubRateLimitError(
+                    "Rate limit exceeded", response.status_code, response.text
+                )
             # Handle common error status codes
             if response.status_code == 401:
-                raise GitHubAPIError("Authentication failed", response.status_code, response.text)
+                raise GitHubAPIError(
+                    "Authentication failed", response.status_code, response.text
+                )
             elif response.status_code == 403:
-                raise GitHubPermissionError("Insufficient permissions", response.status_code, response.text)
+                raise GitHubPermissionError(
+                    "Insufficient permissions", response.status_code, response.text
+                )
             elif response.status_code == 404:
-                raise GitHubNotFoundError("Resource not found", response.status_code, response.text)
+                raise GitHubNotFoundError(
+                    "Resource not found", response.status_code, response.text
+                )
             elif response.status_code >= 500:
-                raise GitHubAPIError(f"GitHub server error: {response.status_code}", response.status_code, response.text)
+                raise GitHubAPIError(
+                    f"GitHub server error: {response.status_code}",
+                    response.status_code,
+                    response.text,
+                )
             return response
+
         try:
             return _retry_request()
         except (GitHubRateLimitError, GitHubAPIError):
@@ -200,8 +234,11 @@ class GitHubClient:
         except Exception as e:
             logger.error(f"Unexpected error in GitHub API request: {e}")
             raise GitHubAPIError(f"Unexpected error: {str(e)}")
+
+
 class WorkflowManager:
     """Manages GitHub Actions workflow operations."""
+
     def __init__(self, github_client: GitHubClient):
         """
         Initialize workflow manager.
@@ -210,6 +247,7 @@ class WorkflowManager:
         """
         self.github_client = github_client
         logger.info("Workflow manager initialized")
+
     def trigger_workflow(
         self,
         owner: str,
@@ -217,7 +255,7 @@ class WorkflowManager:
         workflow: str,
         ref: str,
         inputs: Dict[str, Any],
-        return_status_code: bool = False
+        return_status_code: bool = False,
     ) -> Union[bool, int]:
         """
         Trigger a GitHub Actions workflow via the REST API.
@@ -227,9 +265,11 @@ class WorkflowManager:
             workflow: Workflow filename
             ref: Git reference (branch, tag, or commit SHA)
             inputs: Key-value pairs to pass as workflow inputs
-            return_status_code: If True, return the actual HTTP status code instead of boolean
+            return_status_code: If True, return the actual HTTP status code instead of
+                boolean
         Returns:
-            True if workflow was triggered successfully, or HTTP status code if return_status_code=True
+            True if workflow was triggered successfully, or HTTP status code if
+                return_status_code=True
         Raises:
             GitHubAPIError: For API errors
         """
@@ -241,14 +281,16 @@ class WorkflowManager:
                     "repo": repo,
                     "workflow": workflow,
                     "ref": ref,
-                    "inputs_count": len(inputs)
+                    "inputs_count": len(inputs),
                 }
-            }
+            },
         )
         endpoint = f"/repos/{owner}/{repo}/actions/workflows/{workflow}/dispatches"
         payload = {"ref": ref, "inputs": inputs}
         try:
-            response = self.github_client._make_request("POST", endpoint, json_data=payload)
+            response = self.github_client._make_request(
+                "POST", endpoint, json_data=payload
+            )
             if return_status_code:
                 return response.status_code
             else:
@@ -274,7 +316,10 @@ class WorkflowManager:
                     return 500
             else:
                 raise
-    def workflow_exists(self, owner: str, repo: str, workflow_name: str, ref: str = "main") -> bool:
+
+    def workflow_exists(
+        self, owner: str, repo: str, workflow_name: str, ref: str = "main"
+    ) -> bool:
         """
         Check if a GitHub Actions workflow file exists.
         Args:
@@ -302,8 +347,11 @@ class WorkflowManager:
         except GitHubAPIError as e:
             logger.error(f"Error checking workflow existence: {e.message}")
             return False
+
+
 class BranchManager:
     """Handles GitHub branch operations."""
+
     def __init__(self, github_client: GitHubClient):
         """
         Initialize branch manager.
@@ -312,12 +360,9 @@ class BranchManager:
         """
         self.github_client = github_client
         logger.info("Branch manager initialized")
+
     def create_branch_from_ref(
-        self,
-        owner: str,
-        repo: str,
-        base_ref: str,
-        new_branch: str
+        self, owner: str, repo: str, base_ref: str, new_branch: str
     ) -> bool:
         """
         Create a new branch from an existing reference.
@@ -336,34 +381,44 @@ class BranchManager:
                     "owner": owner,
                     "repo": repo,
                     "base_ref": base_ref,
-                    "new_branch": new_branch
+                    "new_branch": new_branch,
                 }
-            }
+            },
         )
         try:
             # Get the SHA of the base reference
             endpoint = f"/repos/{owner}/{repo}/git/ref/heads/{base_ref}"
             response = self.github_client._make_request("GET", endpoint)
             if response.status_code != 200:
-                logger.error(f"Failed to get SHA for base ref '{base_ref}': {response.status_code}")
+                logger.error(
+                    f"Failed to get SHA for base ref '{base_ref}': "
+                    f"{response.status_code}"
+                )
                 return False
             base_sha = response.json()["object"]["sha"]
             logger.debug(f"Got base SHA: {base_sha[:8]}...")
             # Create the new branch
             endpoint = f"/repos/{owner}/{repo}/git/refs"
             payload = {"ref": f"refs/heads/{new_branch}", "sha": base_sha}
-            response = self.github_client._make_request("POST", endpoint, json_data=payload)
+            response = self.github_client._make_request(
+                "POST", endpoint, json_data=payload
+            )
             if response.status_code == 201:
                 logger.info(f"Branch '{new_branch}' created successfully")
                 return True
             else:
-                logger.error(f"Failed to create branch '{new_branch}': {response.status_code}")
+                logger.error(
+                    f"Failed to create branch '{new_branch}': {response.status_code}"
+                )
                 return False
         except GitHubAPIError as e:
             logger.error(f"Error creating branch: {e.message}")
             return False
+
+
 class PRManager:
     """Manages GitHub pull request operations."""
+
     def __init__(self, github_client: GitHubClient):
         """
         Initialize PR manager.
@@ -372,14 +427,9 @@ class PRManager:
         """
         self.github_client = github_client
         logger.info("PR manager initialized")
+
     def create_pull_request(
-        self,
-        owner: str,
-        repo: str,
-        base: str,
-        head: str,
-        title: str,
-        body: str
+        self, owner: str, repo: str, base: str, head: str, title: str, body: str
     ) -> bool:
         """
         Create a Pull Request on GitHub.
@@ -401,14 +451,16 @@ class PRManager:
                     "repo": repo,
                     "base": base,
                     "head": head,
-                    "title": title
+                    "title": title,
                 }
-            }
+            },
         )
         endpoint = f"/repos/{owner}/{repo}/pulls"
         payload = {"title": title, "body": body, "head": head, "base": base}
         try:
-            response = self.github_client._make_request("POST", endpoint, json_data=payload)
+            response = self.github_client._make_request(
+                "POST", endpoint, json_data=payload
+            )
             if response.status_code == 201:
                 logger.info("Pull request created successfully")
                 return True
@@ -418,6 +470,7 @@ class PRManager:
         except GitHubAPIError as e:
             logger.error(f"Error creating pull request: {e.message}")
             return False
+
     def auto_merge_pull_request(self, owner: str, repo: str, branch_name: str) -> bool:
         """
         Automatically merge a Pull Request.
@@ -446,7 +499,9 @@ class PRManager:
                 "commit_title": f"Merge PR #{pr_number}: Add pipeline workflow",
                 "commit_message": "Auto-merge pipeline workflow addition",
             }
-            response = self.github_client._make_request("PUT", merge_endpoint, json_data=merge_payload)
+            response = self.github_client._make_request(
+                "PUT", merge_endpoint, json_data=merge_payload
+            )
             if response.status_code == 200:
                 logger.info(f"PR #{pr_number} merged successfully!")
                 return True
@@ -456,8 +511,11 @@ class PRManager:
         except GitHubAPIError as e:
             logger.error(f"Error auto-merging PR: {e.message}")
             return False
+
+
 class WorkflowGenerator:
     """Generates GitHub Actions workflow content."""
+
     @staticmethod
     def generate_workflow_steps(pipeline_steps: Optional[List[Any]]) -> str:
         """
@@ -527,6 +585,7 @@ class WorkflowGenerator:
 """
                 )
         return "\n".join(workflow_steps)
+
     @staticmethod
     def generate_default_workflow_steps() -> str:
         """Generate default workflow steps when no pipeline steps are provided."""
@@ -546,11 +605,9 @@ class WorkflowGenerator:
         sleep 2
         echo "Deployment completed successfully"
 """
+
     @staticmethod
-    def generate_workflow_content(
-        pipeline_id: str,
-        workflow_steps: str
-    ) -> str:
+    def generate_workflow_content(pipeline_id: str, workflow_steps: str) -> str:
         """
         Generate complete workflow YAML content.
         Args:
@@ -601,11 +658,15 @@ jobs:
 {workflow_steps}
     - name: Pipeline execution completed
       run: |
-        echo "Pipeline ${{{{ github.event.inputs.pipeline_id }}}} completed successfully!"
+        echo "Pipeline ${{{{ github.event.inputs.pipeline_id }}}} "
+        echo "completed successfully!"
         echo "Finished at: $(date)"
 """
+
+
 class GitHubIntegration:
     """Main integration class that orchestrates all GitHub operations."""
+
     def __init__(self, token: str, http_client: Optional[HTTPClient] = None):
         """
         Initialize GitHub integration.
@@ -618,14 +679,10 @@ class GitHubIntegration:
         self.branch_manager = BranchManager(self.github_client)
         self.pr_manager = PRManager(self.github_client)
         logger.info("GitHub integration initialized")
+
     def trigger_workflow(
-        self,
-        owner: str,
-        repo: str,
-        workflow: str,
-        ref: str,
-        inputs: Dict[str, Any]
-    ) -> bool:
+        self, owner: str, repo: str, workflow: str, ref: str, inputs: Dict[str, Any]
+    ) -> Union[bool, int]:
         """
         Trigger a GitHub Actions workflow.
         Args:
@@ -637,7 +694,10 @@ class GitHubIntegration:
         Returns:
             True if workflow was triggered successfully
         """
-        return self.workflow_manager.trigger_workflow(owner, repo, workflow, ref, inputs)
+        return self.workflow_manager.trigger_workflow(
+            owner, repo, workflow, ref, inputs
+        )
+
     def create_pipeline_workflow(
         self,
         owner: str,
@@ -666,22 +726,28 @@ class GitHubIntegration:
                     "owner": owner,
                     "repo": repo,
                     "workflow_name": workflow_name,
-                    "pipeline_id": pipeline_id
+                    "pipeline_id": pipeline_id,
                 }
-            }
+            },
         )
         # Create a new branch name for the workflow
         branch_name = f"add-pipeline-workflow-{pipeline_id}"
         # First, create a new branch from the base ref
-        branch_created = self.branch_manager.create_branch_from_ref(owner, repo, ref, branch_name)
+        branch_created = self.branch_manager.create_branch_from_ref(
+            owner, repo, ref, branch_name
+        )
         if not branch_created:
             logger.error("Failed to create branch for workflow")
             return False
         # Generate workflow content
         workflow_steps = WorkflowGenerator.generate_workflow_steps(pipeline_steps)
-        workflow_content = WorkflowGenerator.generate_workflow_content(pipeline_id, workflow_steps)
+        workflow_content = WorkflowGenerator.generate_workflow_content(
+            pipeline_id, workflow_steps
+        )
         # Encode the content to base64
-        content_encoded = base64.b64encode(workflow_content.encode("utf-8")).decode("utf-8")
+        content_encoded = base64.b64encode(workflow_content.encode("utf-8")).decode(
+            "utf-8"
+        )
         # Create the workflow file
         endpoint = f"/repos/{owner}/{repo}/contents/.github/workflows/{workflow_name}"
         payload = {
@@ -690,7 +756,9 @@ class GitHubIntegration:
             "branch": branch_name,
         }
         try:
-            response = self.github_client._make_request("PUT", endpoint, json_data=payload)
+            response = self.github_client._make_request(
+                "PUT", endpoint, json_data=payload
+            )
             if response.status_code == 201:
                 logger.info("Workflow file created successfully, creating PR...")
                 # Create a Pull Request
@@ -734,6 +802,7 @@ Please review the workflow configuration and approve if everything looks correct
         except GitHubAPIError as e:
             logger.error(f"Error creating workflow: {e.message}")
             return False
+
     def ensure_pipeline_workflow(
         self,
         owner: str,
@@ -769,6 +838,7 @@ Please review the workflow configuration and approve if everything looks correct
         except Exception as e:
             logger.error(f"Error ensuring pipeline workflow: {e}")
             return False
+
     def create_and_merge_workflow_pr(
         self,
         owner: str,
@@ -795,11 +865,18 @@ Please review the workflow configuration and approve if everything looks correct
         branch_name = f"add-pipeline-workflow-{pipeline_id}"
         # First, try to create a new branch from the user's specified ref
         # If that fails, fall back to the default branch (main)
-        branch_created = self.branch_manager.create_branch_from_ref(owner, repo, ref, branch_name)
+        branch_created = self.branch_manager.create_branch_from_ref(
+            owner, repo, ref, branch_name
+        )
         if not branch_created:
-            logger.warning(f"Failed to create branch {branch_name} from {ref}, trying main branch...")
+            logger.warning(
+                f"Failed to create branch {branch_name} from {ref}, "
+                f"trying main branch..."
+            )
             # Fall back to main branch if user's specified branch doesn't exist
-            branch_created = self.branch_manager.create_branch_from_ref(owner, repo, "main", branch_name)
+            branch_created = self.branch_manager.create_branch_from_ref(
+                owner, repo, "main", branch_name
+            )
             if not branch_created:
                 logger.error(f"Failed to create branch {branch_name} from main branch")
                 return False
@@ -809,9 +886,13 @@ Please review the workflow configuration and approve if everything looks correct
             logger.info(f"Created branch {branch_name} from {ref}")
         # Generate workflow content
         workflow_steps = WorkflowGenerator.generate_workflow_steps(pipeline_steps)
-        workflow_content = WorkflowGenerator.generate_workflow_content(pipeline_id, workflow_steps)
+        workflow_content = WorkflowGenerator.generate_workflow_content(
+            pipeline_id, workflow_steps
+        )
         # Encode the content to base64
-        content_encoded = base64.b64encode(workflow_content.encode("utf-8")).decode("utf-8")
+        content_encoded = base64.b64encode(workflow_content.encode("utf-8")).decode(
+            "utf-8"
+        )
         # Create the workflow file
         endpoint = f"/repos/{owner}/{repo}/contents/.github/workflows/{workflow_name}"
         payload = {
@@ -820,7 +901,9 @@ Please review the workflow configuration and approve if everything looks correct
             "branch": branch_name,
         }
         try:
-            response = self.github_client._make_request("PUT", endpoint, json_data=payload)
+            response = self.github_client._make_request(
+                "PUT", endpoint, json_data=payload
+            )
             if response.status_code == 201:
                 logger.info("Workflow file created successfully, creating PR...")
                 # Create a Pull Request
@@ -855,7 +938,9 @@ This PR will be automatically merged to make the workflow immediately available.
                 if pr_created:
                     logger.info("Pull request created successfully, auto-merging...")
                     # Auto-merge the PR
-                    pr_merged = self.pr_manager.auto_merge_pull_request(owner, repo, branch_name)
+                    pr_merged = self.pr_manager.auto_merge_pull_request(
+                        owner, repo, branch_name
+                    )
                     if pr_merged:
                         logger.info("Pull request auto-merged successfully!")
                         return True
@@ -873,6 +958,8 @@ This PR will be automatically merged to make the workflow immediately available.
         except GitHubAPIError as e:
             logger.error(f"Error creating workflow: {e.message}")
             return False
+
+
 # Backward compatibility functions for existing code
 def trigger_github_workflow(
     owner: str, repo: str, workflow: str, ref: str, token: str, inputs: dict
@@ -891,9 +978,13 @@ def trigger_github_workflow(
     """
     try:
         integration = GitHubIntegration(token)
-        return integration.workflow_manager.trigger_workflow(owner, repo, workflow, ref, inputs, return_status_code=True)
+        return integration.workflow_manager.trigger_workflow(
+            owner, repo, workflow, ref, inputs, return_status_code=True
+        )
     except Exception:
         return 500
+
+
 def create_pipeline_workflow(
     owner: str,
     repo: str,
@@ -920,6 +1011,8 @@ def create_pipeline_workflow(
     return integration.create_pipeline_workflow(
         owner, repo, workflow_name, ref, pipeline_id, pipeline_steps
     )
+
+
 def workflow_exists(
     owner: str, repo: str, workflow_name: str, ref: str, token: str
 ) -> bool:
@@ -936,6 +1029,8 @@ def workflow_exists(
     """
     integration = GitHubIntegration(token)
     return integration.workflow_manager.workflow_exists(owner, repo, workflow_name, ref)
+
+
 def ensure_pipeline_workflow(
     owner: str,
     repo: str,
@@ -962,6 +1057,8 @@ def ensure_pipeline_workflow(
     return integration.ensure_pipeline_workflow(
         owner, repo, workflow_name, ref, pipeline_id, pipeline_steps
     )
+
+
 def create_and_merge_workflow_pr(
     owner: str,
     repo: str,

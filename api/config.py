@@ -73,53 +73,41 @@ class Settings(BaseSettings):
 
     # Basic API configuration
     api_title: str = Field(
-        default="Delivery-Bot API",
-        description="Title for the FastAPI application"
+        default="Delivery-Bot API", description="Title for the FastAPI application"
     )
-    api_version: str = Field(
-        default="0.1.0",
-        description="Version string for the API"
-    )
+    api_version: str = Field(default="0.1.0", description="Version string for the API")
     allow_origins: List[str] = Field(
-        default=["*"],
-        description="CORS allowed origins list"
+        default=["*"], description="CORS allowed origins list"
     )
     log_level: LogLevel = Field(
-        default=LogLevel.INFO,
-        description="Logging level for the application"
+        default=LogLevel.INFO, description="Logging level for the application"
     )
 
     # Optional GitHub Actions integration
     github_owner: Optional[str] = Field(
-        default=None,
-        description="GitHub organization or username"
+        default=None, description="GitHub organization or username"
     )
     github_repo: Optional[str] = Field(
-        default=None,
-        description="GitHub repository name for workflow dispatch"
+        default=None, description="GitHub repository name for workflow dispatch"
     )
     github_workflow: str = Field(
-        default="pipeline.yml",
-        description="GitHub workflow filename"
+        default="pipeline.yml", description="GitHub workflow filename"
     )
     github_ref: str = Field(
-        default="main",
-        description="GitHub ref/branch for workflow dispatch"
+        default="main", description="GitHub ref/branch for workflow dispatch"
     )
     github_token: Optional[str] = Field(
-        default=None,
-        description="GitHub personal access token for API access"
+        default=None, description="GitHub personal access token for API access"
     )
     github_auto_create_workflow: bool = Field(
-        default=True,
-        description="Auto-create workflows if they don't exist"
+        default=True, description="Auto-create workflows if they don't exist"
     )
 
     model_config = SettingsConfigDict(
         env_prefix="APP_",
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=False
+        case_sensitive=False,
     )
 
     @field_validator("log_level", mode="before")
@@ -134,11 +122,7 @@ class Settings(BaseSettings):
     @property
     def github_integration_enabled(self) -> bool:
         """Check if GitHub integration is fully configured."""
-        return all([
-            self.github_owner,
-            self.github_repo,
-            self.github_token
-        ])
+        return all([self.github_owner, self.github_repo, self.github_token])
 
     @property
     def is_production(self) -> bool:
@@ -171,7 +155,7 @@ class Settings(BaseSettings):
             "api_version": self.api_version,
             "log_level": self.log_level.value,
             "github_integration": self.github_integration_enabled,
-            "cors_origins": self.allow_origins
+            "cors_origins": self.allow_origins,
         }
         logging.info("Configuration loaded successfully", extra={"config": config_info})
 
@@ -188,7 +172,7 @@ settings = get_settings()
 # Configure logging based on settings
 logging.basicConfig(
     level=getattr(logging, settings.log_level.value),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 logger = logging.getLogger("cicd")

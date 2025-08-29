@@ -17,11 +17,16 @@ Classes:
 Author: Nosa Omorodion
 Version: 0.1.0
 """
+
 from __future__ import annotations
+
 from datetime import datetime
 from threading import RLock
 from typing import Dict, List, Optional
+
 from .models import Pipeline, Run
+
+
 class InMemoryDB:
     """
     Thread-safe in-memory database for pipelines and runs.
@@ -42,6 +47,7 @@ class InMemoryDB:
         application restarts. This is suitable for development and testing
         but not for production use.
     """
+
     def __init__(self) -> None:
         """
         Initialize the in-memory database.
@@ -50,6 +56,7 @@ class InMemoryDB:
         self._pipelines: Dict[str, Pipeline] = {}
         self._runs: Dict[str, Run] = {}
         self._lock = RLock()
+
     def create_pipeline(self, pipeline: Pipeline) -> Pipeline:
         """
         Create a new pipeline in storage.
@@ -65,6 +72,7 @@ class InMemoryDB:
         with self._lock:
             self._pipelines[pipeline.id] = pipeline
             return pipeline
+
     def list_pipelines(self) -> List[Pipeline]:
         """
         Retrieve all pipelines from storage.
@@ -77,6 +85,7 @@ class InMemoryDB:
         """
         with self._lock:
             return list(self._pipelines.values())
+
     def get_pipeline(self, pipeline_id: str) -> Optional[Pipeline]:
         """
         Retrieve a specific pipeline by ID.
@@ -89,6 +98,7 @@ class InMemoryDB:
         """
         with self._lock:
             return self._pipelines.get(pipeline_id)
+
     def update_pipeline(
         self, pipeline_id: str, updated: Pipeline
     ) -> Optional[Pipeline]:
@@ -112,6 +122,7 @@ class InMemoryDB:
             updated.updated_at = datetime.utcnow()
             self._pipelines[pipeline_id] = updated
             return updated
+
     def delete_pipeline(self, pipeline_id: str) -> bool:
         """
         Delete a pipeline from storage.
@@ -128,6 +139,7 @@ class InMemoryDB:
         """
         with self._lock:
             return self._pipelines.pop(pipeline_id, None) is not None
+
     def create_run(self, run: Run) -> Run:
         """
         Create a new run in storage.
@@ -143,6 +155,7 @@ class InMemoryDB:
         with self._lock:
             self._runs[run.id] = run
             return run
+
     def get_run(self, run_id: str) -> Optional[Run]:
         """
         Retrieve a specific run by ID.
@@ -155,6 +168,7 @@ class InMemoryDB:
         """
         with self._lock:
             return self._runs.get(run_id)
+
     def update_run(self, run_id: str, run: Run) -> Optional[Run]:
         """
         Update an existing run in storage.
@@ -175,5 +189,7 @@ class InMemoryDB:
                 return None
             self._runs[run_id] = run
             return run
+
+
 # Global database instance
 db = InMemoryDB()

@@ -8,13 +8,19 @@ This module tests all API endpoints with various scenarios including:
 - GitHub integration
 Version: 0.1.0
 """
+
 from unittest.mock import patch
+
 from fastapi.testclient import TestClient
+
 from api.main import app
 from api.models import Pipeline, Step, StepType
 from api.storage import InMemoryDB
+
+
 class TestAPIEndpoints:
     """Test all API endpoints comprehensively."""
+
     def setup_method(self):
         """Set up test environment before each test."""
         self.client = TestClient(app)
@@ -38,9 +44,11 @@ class TestAPIEndpoints:
         # Mock the database to use our test instance
         self.db_patcher = patch("api.main.db", self.db)
         self.db_patcher.start()
+
     def teardown_method(self):
         """Clean up after each test."""
         self.db_patcher.stop()
+
     def test_health_endpoint(self):
         """Test the health check endpoint."""
         response = self.client.get("/health")
@@ -49,6 +57,7 @@ class TestAPIEndpoints:
         assert data["status"] == "ok"
         assert "version" in data
         assert "timestamp" in data
+
     def test_create_pipeline_minimal(self):
         """Test creating pipeline with minimal required fields."""
         payload = {
@@ -66,6 +75,7 @@ class TestAPIEndpoints:
         assert data["steps"][0]["name"] == "test"
         assert data["steps"][0]["type"] == "run"
         assert data["steps"][0]["command"] == "echo hello"
+
     def test_create_pipeline_with_all_fields(self):
         """Test creating pipeline with all optional fields."""
         payload = {
@@ -98,6 +108,7 @@ class TestAPIEndpoints:
         assert data["steps"][0]["timeout_seconds"] == 600
         assert data["steps"][0]["continue_on_error"] is True
         assert data["steps"][1]["timeout_seconds"] == 1800
+
     def test_create_pipeline_invalid_url(self):
         """Test creating pipeline with invalid repo URL."""
         payload = {
@@ -109,6 +120,7 @@ class TestAPIEndpoints:
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("url" in str(error).lower() for error in errors)
+
     def test_create_pipeline_missing_required_fields(self):
         """Test creating pipeline with missing required fields."""
         payload = {
@@ -120,6 +132,7 @@ class TestAPIEndpoints:
         errors = response.json()["detail"]
         assert any("name" in str(error).lower() for error in errors)
         assert any("steps" in str(error).lower() for error in errors)
+
     def test_create_pipeline_invalid_step_validation(self):
         """Test creating pipeline with invalid step configuration."""
         payload = {
@@ -131,12 +144,14 @@ class TestAPIEndpoints:
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("type" in str(error).lower() for error in errors)
+
     def test_list_pipelines_empty(self):
         """Test listing pipelines when none exist."""
         response = self.client.get("/pipelines")
         assert response.status_code == 200
         data = response.json()
         assert data == []
+
     def test_list_pipelines_with_data(self):
         """Test listing pipelines with existing data."""
         # Create a pipeline first
@@ -153,6 +168,7 @@ class TestAPIEndpoints:
         data = response.json()
         assert len(data) == 1
         assert data[0]["name"] == "list-test"
+
     def test_get_pipeline_exists(self):
         """Test getting a specific pipeline that exists."""
         # Create a pipeline first
@@ -169,11 +185,13 @@ class TestAPIEndpoints:
         data = response.json()
         assert data["id"] == pipeline_id
         assert data["name"] == "get-test"
+
     def test_get_pipeline_not_found(self):
         """Test getting a pipeline that doesn't exist."""
         response = self.client.get("/pipelines/non-existent-id")
         assert response.status_code == 404
         assert response.json()["detail"] == "Pipeline not found"
+
     @patch("api.gh.create_and_merge_workflow_pr")
     def test_update_pipeline_success(self, mock_create_workflow):
         """Test that pipeline updates work correctly."""
@@ -208,6 +226,7 @@ class TestAPIEndpoints:
         assert data["name"] == "updated-pipeline"
         assert data["repo_url"] == "https://github.com/example/updated-repo"
         assert len(data["steps"]) == 2
+
     def test_update_pipeline_not_found(self):
         """Test updating a pipeline that doesn't exist."""
         update_payload = {
@@ -218,6 +237,7 @@ class TestAPIEndpoints:
         response = self.client.put("/pipelines/non-existent-id", json=update_payload)
         assert response.status_code == 404
         assert response.json()["detail"] == "Pipeline not found"
+
     def test_delete_pipeline_success(self):
         """Test deleting an existing pipeline."""
         # Create a pipeline first
@@ -234,11 +254,13 @@ class TestAPIEndpoints:
         # Verify it's gone
         get_response = self.client.get(f"/pipelines/{pipeline_id}")
         assert get_response.status_code == 404
+
     def test_delete_pipeline_not_found(self):
         """Test deleting a pipeline that doesn't exist."""
         response = self.client.delete("/pipelines/non-existent-id")
         assert response.status_code == 404
         assert response.json()["detail"] == "Pipeline not found"
+
     def test_trigger_pipeline_success(self):
         """Test successful pipeline trigger."""
         # Create pipeline
@@ -255,11 +277,13 @@ class TestAPIEndpoints:
         data = trigger_response.json()
         assert "run_id" in data
         assert data["status"] == "pending"
+
     def test_trigger_pipeline_not_found(self):
         """Test triggering non-existent pipeline."""
         response = self.client.post("/pipelines/non-existent-id/trigger")
         assert response.status_code == 404
         assert response.json()["detail"] == "Pipeline not found"
+
     @patch("api.main.settings")
     def test_trigger_pipeline_with_github_integration(self, mock_settings):
         """Test pipeline trigger with GitHub integration enabled."""
@@ -290,6 +314,7 @@ class TestAPIEndpoints:
             assert trigger_response.status_code == 202
             # GitHub trigger should have been called
             mock_gh_trigger.assert_called_once()
+
     def test_get_run_exists(self):
         """Test getting a specific run that exists."""
         # Create a pipeline and trigger it
@@ -310,16 +335,19 @@ class TestAPIEndpoints:
         assert data["id"] == run_id
         assert data["pipeline_id"] == pipeline_id
         assert data["status"] in ["pending", "running", "succeeded", "failed"]
+
     def test_get_run_not_found(self):
         """Test getting a run that doesn't exist."""
         response = self.client.get("/runs/non-existent-id")
         assert response.status_code == 404
         assert response.json()["detail"] == "Run not found"
+
     def test_list_runs_not_implemented(self):
         """Test that listing all runs is not implemented (GET /runs endpoint doesn't exist)."""
         response = self.client.get("/runs")
         # Should return 404 since the endpoint doesn't exist
         assert response.status_code == 404
+
     def test_list_runs_with_data_not_implemented(self):
         """Test that listing runs with data is not implemented (GET /runs endpoint doesn't exist)."""
         # Create a pipeline and trigger it to create a run
@@ -336,6 +364,7 @@ class TestAPIEndpoints:
         response = self.client.get("/runs")
         # Should return 404 since the endpoint doesn't exist
         assert response.status_code == 404
+
     def test_invalid_json_request(self):
         """Test handling of invalid JSON in request body."""
         response = self.client.post(
@@ -344,11 +373,13 @@ class TestAPIEndpoints:
             headers={"Content-Type": "application/json"},
         )
         assert response.status_code == 422
+
     def test_missing_content_type(self):
         """Test handling of missing content type."""
         response = self.client.post("/pipelines", data='{"name": "test"}')
         # FastAPI should handle this gracefully
         assert response.status_code in [400, 422]
+
     def test_very_long_pipeline_name(self):
         """Test handling of very long pipeline name."""
         long_name = "a" * 1000  # Very long name
@@ -360,6 +391,7 @@ class TestAPIEndpoints:
         response = self.client.post("/pipelines", json=payload)
         # Should either accept it or return validation error
         assert response.status_code in [201, 422]
+
     def test_special_characters_in_names(self):
         """Test handling of special characters in names."""
         special_names = [
@@ -379,6 +411,7 @@ class TestAPIEndpoints:
             response = self.client.post("/pipelines", json=payload)
             # Should handle all these gracefully
             assert response.status_code in [201, 422]
+
     def test_empty_steps_array(self):
         """Test pipeline with empty steps array."""
         payload = {
@@ -389,6 +422,7 @@ class TestAPIEndpoints:
         response = self.client.post("/pipelines", json=payload)
         # Should allow empty steps
         assert response.status_code == 201
+
     def test_sequential_pipeline_operations(self):
         """Test sequential pipeline operations to avoid threading issues."""
         results = []
@@ -404,6 +438,7 @@ class TestAPIEndpoints:
         # All should succeed
         assert all(status == 201 for status in results)
         assert len(results) == 5
+
     def test_pipeline_with_complex_steps(self):
         """Test creating pipeline with complex step configurations."""
         payload = {
@@ -456,6 +491,7 @@ class TestAPIEndpoints:
         assert deploy_step["type"] == "deploy"
         assert deploy_step["manifest"] == "k8s/frontend.yaml"
         assert deploy_step["continue_on_error"] is True
+
     @patch("api.gh.create_and_merge_workflow_pr")
     def test_pipeline_update_with_step_changes(self, mock_create_workflow):
         """Test that pipeline updates with step changes work correctly."""
@@ -493,6 +529,7 @@ class TestAPIEndpoints:
         assert data["steps"][0]["name"] == "new-step-1"
         assert data["steps"][1]["name"] == "new-step-2"
         assert data["steps"][1]["type"] == "build"
+
     def test_pipeline_validation_edge_cases(self):
         """Test pipeline validation with edge case inputs."""
         # Test with very short name

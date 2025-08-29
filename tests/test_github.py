@@ -1,8 +1,13 @@
 from unittest.mock import Mock, patch
+
 import requests
+
 from api.gh import trigger_github_workflow
+
+
 class TestGitHubIntegration:
     """Test GitHub workflow integration."""
+
     @patch("api.gh.requests.post")
     def test_trigger_github_workflow_success(self, mock_post):
         """Test successful GitHub workflow trigger."""
@@ -45,6 +50,7 @@ class TestGitHubIntegration:
         assert payload["inputs"] == inputs
         # Check timeout
         assert call_args[1]["timeout"] == 15
+
     @patch("api.gh.requests.post")
     def test_trigger_github_workflow_auth_error(self, mock_post):
         """Test GitHub workflow trigger with authentication error."""
@@ -56,6 +62,7 @@ class TestGitHubIntegration:
             "owner", "repo", "workflow.yml", "main", "invalid-token", {}
         )
         assert status_code == 401
+
     @patch("api.gh.requests.post")
     def test_trigger_github_workflow_not_found(self, mock_post):
         """Test GitHub workflow trigger with workflow not found."""
@@ -67,6 +74,7 @@ class TestGitHubIntegration:
             "owner", "repo", "nonexistent.yml", "main", "token", {}
         )
         assert status_code == 404
+
     @patch("api.gh.requests.post")
     def test_trigger_github_workflow_with_complex_inputs(self, mock_post):
         """Test GitHub workflow trigger with complex input data."""
@@ -90,6 +98,7 @@ class TestGitHubIntegration:
         payload = call_args[1]["json"]
         assert payload["inputs"] == complex_inputs
         assert payload["ref"] == "develop"
+
     @patch("api.gh.requests.post")
     def test_trigger_github_workflow_network_error(self, mock_post):
         """Test GitHub workflow trigger with network error."""
@@ -101,6 +110,7 @@ class TestGitHubIntegration:
         )
         # Should return 500 for unexpected errors after retries
         assert status_code == 500
+
     @patch("api.gh.requests.post")
     def test_trigger_github_workflow_timeout(self, mock_post):
         """Test GitHub workflow trigger with timeout."""
@@ -112,6 +122,7 @@ class TestGitHubIntegration:
         )
         # Should return 500 for unexpected errors after retries
         assert status_code == 500
+
     @patch("api.gh.requests.post")
     def test_trigger_github_workflow_server_error(self, mock_post):
         """Test GitHub workflow trigger with server error."""
@@ -122,6 +133,7 @@ class TestGitHubIntegration:
             "owner", "repo", "workflow.yml", "main", "token", {}
         )
         assert status_code == 500
+
     @patch("api.gh.requests.post")
     def test_trigger_github_workflow_rate_limited(self, mock_post):
         """Test GitHub workflow trigger when rate limited."""
@@ -132,6 +144,7 @@ class TestGitHubIntegration:
             "owner", "repo", "workflow.yml", "main", "token", {}
         )
         assert status_code == 429
+
     @patch("api.gh.requests.post")
     def test_trigger_github_workflow_empty_inputs(self, mock_post):
         """Test GitHub workflow trigger with empty inputs."""
@@ -146,6 +159,7 @@ class TestGitHubIntegration:
         call_args = mock_post.call_args
         payload = call_args[1]["json"]
         assert payload["inputs"] == {}
+
     @patch("api.gh.requests.post")
     def test_trigger_github_workflow_special_characters(self, mock_post):
         """Test GitHub workflow trigger with special characters in parameters."""
@@ -170,6 +184,7 @@ class TestGitHubIntegration:
         call_args = mock_post.call_args
         expected_url = f"https://api.github.com/repos/{owner}/{repo}/actions/workflows/{workflow}/dispatches"
         assert call_args[0][0] == expected_url
+
     def test_trigger_github_workflow_parameter_types(self):
         """Test that function handles parameter types correctly."""
         # All parameters should be strings

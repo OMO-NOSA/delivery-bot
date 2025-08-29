@@ -1,16 +1,22 @@
 import asyncio
 from unittest.mock import Mock, patch
+
 import pytest
+
 from api.models import Pipeline, Run, RunStatus, Step, StepType
 from api.pipeline_runner import run_pipeline, simulate_step
 from api.storage import InMemoryDB
+
+
 class TestSimulateStep:
     """Test simulate_step function."""
+
     def setup_method(self):
         """Set up test environment."""
         self.db = InMemoryDB()
         self.run = Run(pipeline_id="test-pipeline")
         self.db.create_run(self.run)
+
     @pytest.mark.asyncio
     async def test_simulate_run_step(self):
         """Test simulating a run step."""
@@ -26,6 +32,7 @@ class TestSimulateStep:
         assert "[step 1] Starting 'test-run' of type 'run'" in logs
         assert "Running shell command: 'echo hello'" in logs
         assert "Command finished with exit code 0" in logs
+
     @pytest.mark.asyncio
     async def test_simulate_build_step(self):
         """Test simulating a build step."""
@@ -49,6 +56,7 @@ class TestSimulateStep:
         )
         assert "Image built and pushed successfully" in logs
         assert "Step 'test-build' completed successfully" in logs
+
     @pytest.mark.asyncio
     async def test_simulate_deploy_step(self):
         """Test simulating a deploy step."""
@@ -65,6 +73,7 @@ class TestSimulateStep:
         assert "[step 3] Starting 'test-deploy' of type 'deploy'" in logs
         assert "Applying manifest k8s/deployment.yaml to cluster" in logs
         assert "Deployment applied" in logs
+
     @pytest.mark.asyncio
     async def test_simulate_step_with_defaults(self):
         """Test simulating steps with default values."""
@@ -90,9 +99,11 @@ class TestSimulateStep:
             await simulate_step(self.run, deploy_step, 0)
         logs = self.db.get_run(self.run.id).logs
         assert "Applying manifest k8s/deployment.yaml to cluster" in logs
+
     @pytest.mark.asyncio
     async def test_simulate_step_unknown_type(self):
         """Test simulating step with unknown type."""
+
         # Create a mock step object with invalid type that has the expected structure
         class MockStep:
             def __init__(self):
@@ -100,6 +111,7 @@ class TestSimulateStep:
                 self.type = type(
                     "MockStepType", (), {"value": "unknown"}
                 )()  # Mock enum-like object
+
         mock_step = MockStep()
         with patch("api.pipeline_runner.db", self.db):
             with pytest.raises(ValueError, match="Unknown step type"):
@@ -108,6 +120,7 @@ class TestSimulateStep:
         updated_run = self.db.get_run(self.run.id)
         logs = updated_run.logs
         assert "Unknown step type encountered" in logs
+
     @pytest.mark.asyncio
     async def test_simulate_step_db_updates(self):
         """Test that simulate_step updates database correctly."""
@@ -117,10 +130,12 @@ class TestSimulateStep:
             await simulate_step(self.run, step, 0)
             # Verify update_run was called multiple times (for each log message)
             assert mock_db.update_run.call_count >= 3
+
     @pytest.mark.asyncio
     async def test_simulate_step_timing(self):
         """Test that simulate_step takes appropriate time for each step type."""
         import time
+
         # Test run step timing
         start = time.time()
         step = Step(name="test", type=StepType.run, command="echo test")
@@ -138,8 +153,11 @@ class TestSimulateStep:
             await simulate_step(self.run, build_step, 1)
         duration = time.time() - start
         assert duration >= 1.5  # Build should take longer
+
+
 class TestRunPipeline:
     """Test run_pipeline function."""
+
     def setup_method(self):
         """Set up test environment."""
         self.db = InMemoryDB()
@@ -159,6 +177,7 @@ class TestRunPipeline:
         )
         self.run = Run(pipeline_id=self.pipeline.id)
         self.db.create_run(self.run)
+
     @pytest.mark.asyncio
     async def test_run_pipeline_success(self):
         """Test successful pipeline execution."""
@@ -175,6 +194,7 @@ class TestRunPipeline:
         assert "lint" in " ".join(updated_run.logs)
         assert "build" in " ".join(updated_run.logs)
         assert "deploy" in " ".join(updated_run.logs)
+
     @pytest.mark.asyncio
     async def test_run_pipeline_with_failure(self):
         """Test pipeline execution with step failure."""
@@ -192,6 +212,7 @@ class TestRunPipeline:
         assert updated_run.finished_at is not None
         # Verify error was logged
         assert "ERROR: Step failed" in updated_run.logs
+
     @pytest.mark.asyncio
     async def test_run_pipeline_empty_steps(self):
         """Test pipeline with no steps."""
@@ -200,8 +221,11 @@ class TestRunPipeline:
         )
         with patch("api.pipeline_runner.db", self.db):
             # Empty pipeline should fail validation
-            with pytest.raises(ValueError, match="Pipeline must have at least one step"):
+            with pytest.raises(
+                ValueError, match="Pipeline must have at least one step"
+            ):
                 await run_pipeline(empty_pipeline, self.run)
+
     @pytest.mark.asyncio
     async def test_run_pipeline_status_transitions(self):
         """Test that pipeline status transitions correctly."""
@@ -216,6 +240,7 @@ class TestRunPipeline:
         assert updated_run.status == RunStatus.succeeded
         assert updated_run.started_at is not None
         assert updated_run.finished_at is not None
+
     @pytest.mark.asyncio
     async def test_run_pipeline_concurrent_execution(self):
         """Test concurrent pipeline execution."""
@@ -238,29 +263,35 @@ class TestRunPipeline:
         assert updated_run1.id != updated_run2.id
         assert len(updated_run1.logs) > 0
         assert len(updated_run2.logs) > 0
+
     @pytest.mark.asyncio
     async def test_run_pipeline_step_order(self):
         """Test that steps are executed in order."""
         step_order = []
+
         async def track_step_order(run, step, index):
             step_order.append((index, step.name))
             # Simulate the step execution without calling the original
             run.current_step = index
             run.logs.append(
-                f"[step {index+1}] Starting '{step.name}' of type '{step.type.value}'"
+                f"[step {index + 1}] Starting '{step.name}' of type '{step.type.value}'"
             )
             self.db.update_run(run.id, run)
+
         with patch("api.pipeline_runner.db", self.db):
             with patch(
-                "api.pipeline_runner.PipelineExecutor.simulate_step", side_effect=track_step_order
+                "api.pipeline_runner.PipelineExecutor.simulate_step",
+                side_effect=track_step_order,
             ):
                 await run_pipeline(self.pipeline, self.run)
         # Verify steps were executed in order
         assert step_order == [(0, "lint"), (1, "build"), (2, "deploy")]
+
     @pytest.mark.asyncio
     async def test_run_pipeline_exception_in_middle_step(self):
         """Test pipeline failure in middle step."""
         call_count = 0
+
         async def fail_on_second_step(run, step, index):
             nonlocal call_count
             call_count += 1
@@ -269,12 +300,14 @@ class TestRunPipeline:
             # Simulate successful execution for other steps
             run.current_step = index
             run.logs.append(
-                f"[step {index+1}] Starting '{step.name}' of type '{step.type.value}'"
+                f"[step {index + 1}] Starting '{step.name}' of type '{step.type.value}'"
             )
             self.db.update_run(run.id, run)
+
         with patch("api.pipeline_runner.db", self.db):
             with patch(
-                "api.pipeline_runner.PipelineExecutor.simulate_step", side_effect=fail_on_second_step
+                "api.pipeline_runner.PipelineExecutor.simulate_step",
+                side_effect=fail_on_second_step,
             ):
                 await run_pipeline(self.pipeline, self.run)
         # Should fail and not execute remaining steps

@@ -1,12 +1,17 @@
 import os
 from unittest.mock import patch
-from api.config import Settings, LogLevel
+
+from api.config import LogLevel, Settings
+
+
 class TestSettings:
     """Test Settings configuration loading and validation."""
+
     def test_default_settings(self):
         """Test default settings values."""
         # Test that the global settings instance has the expected structure
         from api.config import settings
+
         assert settings.api_title == "Delivery-Bot API"
         assert settings.api_version == "0.1.0"
         assert settings.allow_origins == ["*"]
@@ -15,6 +20,7 @@ class TestSettings:
         assert settings.github_workflow == "pipeline.yml"
         assert settings.github_ref == "main"
         # Note: github_owner, github_repo, and github_token may be None if not configured
+
     @patch.dict(
         os.environ,
         {
@@ -29,6 +35,7 @@ class TestSettings:
         assert settings.api_title == "Custom API Title"
         assert settings.api_version == "1.2.3"
         assert settings.log_level == "DEBUG"
+
     @patch.dict(
         os.environ,
         {"APP_ALLOW_ORIGINS": '["https://example.com", "https://app.example.com"]'},
@@ -40,6 +47,7 @@ class TestSettings:
             "https://example.com",
             "https://app.example.com",
         ]
+
     @patch.dict(
         os.environ,
         {
@@ -58,6 +66,7 @@ class TestSettings:
         assert settings.github_workflow == "custom-pipeline.yml"
         assert settings.github_ref == "develop"
         assert settings.github_token == "secret-token-123"
+
     def test_github_integration_enabled_when_configured(self):
         """Test determining if GitHub integration is enabled."""
         # Create settings with GitHub configuration
@@ -75,6 +84,7 @@ class TestSettings:
                 [settings.github_owner, settings.github_repo, settings.github_token]
             )
             assert is_enabled is True
+
     def test_github_integration_enabled_with_current_config(self):
         """Test that GitHub integration is enabled with current .env configuration."""
         with patch.dict(
@@ -92,6 +102,7 @@ class TestSettings:
                 [settings.github_owner, settings.github_repo, settings.github_token]
             )
             assert is_enabled is True
+
     def test_github_configuration_structure(self):
         """Test that GitHub configuration has the expected structure."""
         with patch.dict(
@@ -115,6 +126,7 @@ class TestSettings:
                 [settings.github_owner, settings.github_repo, settings.github_token]
             )
             assert is_enabled is True
+
     def test_log_level_case_insensitive(self):
         """Test that log level can be set from environment variable."""
         # Test with lowercase log level
@@ -125,6 +137,7 @@ class TestSettings:
         with patch.dict(os.environ, {"APP_LOG_LEVEL": "INFO"}):
             settings = Settings()
             assert settings.log_level == LogLevel.INFO
+
     @patch.dict(
         os.environ,
         {
@@ -138,6 +151,7 @@ class TestSettings:
         # Empty strings should override defaults
         assert settings.api_title == ""
         assert settings.api_version == ""
+
     def test_settings_model_config(self):
         """Test that settings model configuration is correct."""
         settings = Settings()
@@ -146,14 +160,17 @@ class TestSettings:
         assert config["env_prefix"] == "APP_"
         assert config["env_file"] == ".env"
         assert config["env_file_encoding"] == "utf-8"
+
     def test_github_workflow_default(self):
         """Test GitHub workflow default value."""
         settings = Settings()
         assert settings.github_workflow == "pipeline.yml"
+
     def test_github_ref_default(self):
         """Test GitHub ref default value."""
         settings = Settings()
         assert settings.github_ref == "main"
+
     @patch.dict(os.environ, {"APP_ALLOW_ORIGINS": "invalid-json"}, clear=False)
     def test_invalid_json_in_list_field(self):
         """Test handling of invalid JSON in list field."""
@@ -166,6 +183,7 @@ class TestSettings:
         except Exception:
             # If it raises an exception, that's also acceptable behavior
             pass
+
     def test_settings_immutability(self):
         """Test that settings are properly configured as immutable if intended."""
         settings = Settings()

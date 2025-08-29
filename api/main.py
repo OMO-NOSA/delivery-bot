@@ -16,7 +16,9 @@ Dependencies:
 Author: Nosa Omorodion
 Version: 0.2.0
 """
+
 from __future__ import annotations
+
 import asyncio
 import logging
 import sys
@@ -24,15 +26,18 @@ import time
 from abc import ABC, abstractmethod
 from typing import List
 from urllib.parse import urlparse
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, HttpUrl
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
 from .config import settings
 from .models import Pipeline, Run, RunStatus, Step
 from .storage import db
+
 # Initialize FastAPI application with configuration from settings
 app = FastAPI(title=settings.api_title, version=settings.api_version)
 # Configure logging
@@ -43,22 +48,30 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 logger.setLevel(getattr(logging, settings.log_level.value, logging.INFO))
+
+
 class GitHubIntegrationStrategy(ABC):
     """Abstract strategy for GitHub integration operations."""
+
     @abstractmethod
     def can_handle(self, repo_url: str) -> bool:
         """Check if this strategy can handle the repository URL."""
         pass
+
     @abstractmethod
     def extract_repo_info(self, repo_url: str) -> tuple[str, str]:
         """Extract owner and repository name from URL."""
         pass
-class GitHubIntegrationStrategy(GitHubIntegrationStrategy):
+
+
+class GitHubStrategy(GitHubIntegrationStrategy):
     """Strategy for GitHub repository integration."""
+
     def can_handle(self, repo_url: str) -> bool:
         """Check if this is a GitHub repository."""
         parsed = urlparse(repo_url)
         return parsed.hostname == "github.com"
+
     def extract_repo_info(self, repo_url: str) -> tuple[str, str]:
         """Extract owner and repository name from GitHub URL."""
         parsed = urlparse(repo_url)
@@ -66,28 +79,34 @@ class GitHubIntegrationStrategy(GitHubIntegrationStrategy):
         if len(path_parts) >= 2:
             return path_parts[0], path_parts[1]
         raise ValueError(f"Invalid GitHub repository URL format: {repo_url}")
+
+
 class NoIntegrationStrategy(GitHubIntegrationStrategy):
     """Strategy for non-GitHub repositories."""
+
     def can_handle(self, repo_url: str) -> bool:
         """This strategy handles all non-GitHub URLs."""
-        return not GitHubIntegrationStrategy().can_handle(repo_url)
+        return not GitHubStrategy().can_handle(repo_url)
+
     def extract_repo_info(self, repo_url: str) -> tuple[str, str]:
         """Extract basic info from non-GitHub URLs."""
         parsed = urlparse(repo_url)
         return parsed.hostname or "unknown", parsed.path.strip("/") or "unknown"
+
+
 class GitHubIntegrationManager:
     """Manages GitHub integration operations using strategy pattern."""
+
     def __init__(self):
-        self.strategies = [
-            GitHubIntegrationStrategy(),
-            NoIntegrationStrategy()
-        ]
+        self.strategies = [GitHubStrategy(), NoIntegrationStrategy()]
+
     def get_strategy(self, repo_url: str) -> GitHubIntegrationStrategy:
         """Get the appropriate strategy for the repository URL."""
         for strategy in self.strategies:
             if strategy.can_handle(repo_url):
                 return strategy
         return NoIntegrationStrategy()
+
     def create_workflow(self, pipeline: Pipeline, repo_url: str) -> bool:
         """Create GitHub workflow for the pipeline."""
         if not settings.github_token:
@@ -95,8 +114,10 @@ class GitHubIntegrationManager:
             return False
         try:
             strategy = self.get_strategy(repo_url)
-            if not isinstance(strategy, GitHubIntegrationStrategy):
-                logger.info(f"Repository {repo_url} not on GitHub, skipping workflow creation")
+            if not isinstance(strategy, GitHubStrategy):
+                logger.info(
+                    f"Repository {repo_url} not on GitHub, skipping workflow creation"
+                )
                 return False
             owner, repo = strategy.extract_repo_info(repo_url)
             workflow_name = f"pipeline-{pipeline.id}.yml"
@@ -107,6 +128,7 @@ class GitHubIntegrationManager:
                 f"Creating GitHub workflow for pipeline {pipeline.id} in {owner}/{repo}"
             )
             from .gh import create_and_merge_workflow_pr
+
             workflow_created = create_and_merge_workflow_pr(
                 owner,
                 repo,
@@ -131,10 +153,11 @@ class GitHubIntegrationManager:
                 extra={
                     "pipeline_id": pipeline.id,
                     "repo_url": repo_url,
-                    "error": str(e)
-                }
+                    "error": str(e),
+                },
             )
             return False
+
     def trigger_workflow(self, pipeline: Pipeline, repo_url: str) -> bool:
         """Trigger GitHub workflow for the pipeline."""
         if not settings.github_token:
@@ -146,9 +169,14 @@ class GitHubIntegrationManager:
             owner, repo = strategy.extract_repo_info(repo_url)
             workflow_name = f"pipeline-{pipeline.id}.yml"
             from .gh import trigger_github_workflow, workflow_exists
+
             # Check if workflow exists
-            if not workflow_exists(owner, repo, workflow_name, pipeline.branch, settings.github_token):
-                logger.info(f"GitHub workflow {workflow_name} not found in {owner}/{repo}")
+            if not workflow_exists(
+                owner, repo, workflow_name, pipeline.branch, settings.github_token
+            ):
+                logger.info(
+                    f"GitHub workflow {workflow_name} not found in {owner}/{repo}"
+                )
                 return False
             # Trigger the workflow
             status_code = trigger_github_workflow(
@@ -166,9 +194,13 @@ class GitHubIntegrationManager:
             )
             success = status_code == 204
             if success:
-                logger.info(f"GitHub Actions workflow triggered successfully for pipeline {pipeline.id}")
+                logger.info(
+                    f"GitHub Actions workflow triggered successfully for pipeline {pipeline.id}"
+                )
             else:
-                logger.warning(f"GitHub Actions workflow trigger failed with status {status_code}")
+                logger.warning(
+                    f"GitHub Actions workflow trigger failed with status {status_code}"
+                )
             return success
         except Exception as e:
             logger.error(
@@ -176,12 +208,16 @@ class GitHubIntegrationManager:
                 extra={
                     "pipeline_id": pipeline.id,
                     "repo_url": repo_url,
-                    "error": str(e)
-                }
+                    "error": str(e),
+                },
             )
             return False
+
+
 # Initialize GitHub integration manager
 github_manager = GitHubIntegrationManager()
+
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """
@@ -220,9 +256,11 @@ async def log_requests(request: Request, call_next):
                 "performance": {
                     "duration_ms": int(duration_ms),
                     "is_slow": duration_ms > 1000,  # Flag slow requests
-                }
+                },
             },
         )
+
+
 # Configure CORS middleware for cross-origin requests
 app.add_middleware(
     CORSMiddleware,
@@ -230,6 +268,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 @app.get("/health")
 def health():
     """
@@ -240,11 +280,9 @@ def health():
     Returns:
         dict: Simple status object with "ok" status and additional info
     """
-    return {
-        "status": "ok",
-        "version": settings.api_version,
-        "timestamp": time.time()
-    }
+    return {"status": "ok", "version": settings.api_version, "timestamp": time.time()}
+
+
 class CreatePipelineRequest(BaseModel):
     """
     Request model for creating or updating pipelines.
@@ -256,10 +294,13 @@ class CreatePipelineRequest(BaseModel):
         branch (str): Git branch to use (defaults to "main")
         steps (List[Step]): List of steps to execute in the pipeline
     """
+
     name: str
     repo_url: HttpUrl
     branch: str = "main"
     steps: List[Step]
+
+
 @app.post("/pipelines", response_model=Pipeline, status_code=201)
 def create_pipeline(req: CreatePipelineRequest):
     """
@@ -288,12 +329,14 @@ def create_pipeline(req: CreatePipelineRequest):
             "repo_url": str(created_pipeline.repo_url),
             "branch": created_pipeline.branch,
             "step_count": len(created_pipeline.steps),
-            "github_integration_enabled": settings.github_integration_enabled
-        }
+            "github_integration_enabled": settings.github_integration_enabled,
+        },
     )
     # Handle GitHub integration using strategy pattern
     github_manager.create_workflow(created_pipeline, str(req.repo_url))
     return created_pipeline
+
+
 @app.get("/pipelines", response_model=List[Pipeline])
 def list_pipelines():
     """
@@ -304,6 +347,8 @@ def list_pipelines():
         List[Pipeline]: List of all pipeline objects
     """
     return db.list_pipelines()
+
+
 @app.get("/pipelines/{pipeline_id}", response_model=Pipeline)
 def get_pipeline(pipeline_id: str):
     """
@@ -320,6 +365,8 @@ def get_pipeline(pipeline_id: str):
     if not pipeline:
         raise HTTPException(404, "Pipeline not found")
     return pipeline
+
+
 @app.put("/pipelines/{pipeline_id}", response_model=Pipeline)
 def update_pipeline(pipeline_id: str, req: CreatePipelineRequest):
     """
@@ -351,6 +398,8 @@ def update_pipeline(pipeline_id: str, req: CreatePipelineRequest):
     if saved is None:
         raise HTTPException(500, "Failed to update pipeline")
     return saved
+
+
 @app.delete("/pipelines/{pipeline_id}", status_code=204)
 def delete_pipeline(pipeline_id: str):
     """
@@ -367,6 +416,8 @@ def delete_pipeline(pipeline_id: str):
     success = db.delete_pipeline(pipeline_id)
     if not success:
         raise HTTPException(404, "Pipeline not found")
+
+
 class TriggerResponse(BaseModel):
     """
     Response model for pipeline trigger requests.
@@ -376,8 +427,11 @@ class TriggerResponse(BaseModel):
         run_id (str): Unique identifier for the created run
         status (RunStatus): Initial status of the run (typically "pending")
     """
+
     run_id: str
     status: RunStatus
+
+
 @app.post(
     "/pipelines/{pipeline_id}/trigger", response_model=TriggerResponse, status_code=202
 )
@@ -427,6 +481,7 @@ def trigger_pipeline(pipeline_id: str):
     github_manager.trigger_workflow(pipeline, str(pipeline.repo_url))
     # Start pipeline execution asynchronously
     from .pipeline_runner import run_pipeline
+
     try:
         loop = asyncio.get_running_loop()
         loop.create_task(run_pipeline(pipeline, run))
@@ -437,6 +492,8 @@ def trigger_pipeline(pipeline_id: str):
         # For now, we'll just log that the pipeline would run
         run.logs.append("Pipeline execution queued (no async context available)")
     return TriggerResponse(run_id=run.id, status=run.status)
+
+
 @app.get("/runs/{run_id}", response_model=Run)
 def get_run(run_id: str):
     """
@@ -455,6 +512,8 @@ def get_run(run_id: str):
     if not run:
         raise HTTPException(404, "Run not found")
     return run
+
+
 # Exception handlers
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
@@ -490,6 +549,8 @@ async def validation_exception_handler(
         extra={"props": {"path": request.url.path, "errors": errors}},
     )
     return JSONResponse(status_code=422, content={"detail": errors})
+
+
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(
     request: Request, exc: StarletteHTTPException
@@ -515,6 +576,8 @@ async def http_exception_handler(
         },
     )
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """

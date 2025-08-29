@@ -1,13 +1,18 @@
 import threading
 import time
 from datetime import datetime
+
 from api.models import Pipeline, Run, RunStatus, Step, StepType
 from api.storage import InMemoryDB
+
+
 class TestInMemoryDB:
     """Test InMemoryDB storage operations."""
+
     def setup_method(self):
         """Set up fresh DB instance for each test."""
         self.db = InMemoryDB()
+
     def test_create_pipeline(self):
         """Test creating a pipeline."""
         pipeline = Pipeline(
@@ -19,10 +24,12 @@ class TestInMemoryDB:
         assert result.id == pipeline.id
         assert result.name == "test-pipeline"
         assert len(self.db._pipelines) == 1
+
     def test_list_pipelines_empty(self):
         """Test listing pipelines when DB is empty."""
         pipelines = self.db.list_pipelines()
         assert pipelines == []
+
     def test_list_pipelines_with_data(self):
         """Test listing pipelines with data."""
         p1 = Pipeline(name="pipeline1", repo_url="https://github.com/example/repo1")
@@ -34,6 +41,7 @@ class TestInMemoryDB:
         names = [p.name for p in pipelines]
         assert "pipeline1" in names
         assert "pipeline2" in names
+
     def test_get_pipeline_exists(self):
         """Test getting an existing pipeline."""
         pipeline = Pipeline(name="test", repo_url="https://github.com/example/repo")
@@ -42,10 +50,12 @@ class TestInMemoryDB:
         assert retrieved is not None
         assert retrieved.id == created.id
         assert retrieved.name == "test"
+
     def test_get_pipeline_not_exists(self):
         """Test getting a non-existent pipeline."""
         result = self.db.get_pipeline("non-existent-id")
         assert result is None
+
     def test_update_pipeline_exists(self):
         """Test updating an existing pipeline."""
         original = Pipeline(name="original", repo_url="https://github.com/example/repo")
@@ -65,11 +75,13 @@ class TestInMemoryDB:
         # Verify it's updated in storage
         retrieved = self.db.get_pipeline(created.id)
         assert retrieved.name == "updated"
+
     def test_update_pipeline_not_exists(self):
         """Test updating a non-existent pipeline."""
         pipeline = Pipeline(name="test", repo_url="https://github.com/example/repo")
         result = self.db.update_pipeline("non-existent-id", pipeline)
         assert result is None
+
     def test_delete_pipeline_exists(self):
         """Test deleting an existing pipeline."""
         pipeline = Pipeline(name="test", repo_url="https://github.com/example/repo")
@@ -78,10 +90,12 @@ class TestInMemoryDB:
         assert result is True
         assert self.db.get_pipeline(created.id) is None
         assert len(self.db._pipelines) == 0
+
     def test_delete_pipeline_not_exists(self):
         """Test deleting a non-existent pipeline."""
         result = self.db.delete_pipeline("non-existent-id")
         assert result is False
+
     def test_create_run(self):
         """Test creating a run."""
         run = Run(pipeline_id="pipeline-123")
@@ -89,6 +103,7 @@ class TestInMemoryDB:
         assert result.id == run.id
         assert result.pipeline_id == "pipeline-123"
         assert len(self.db._runs) == 1
+
     def test_get_run_exists(self):
         """Test getting an existing run."""
         run = Run(pipeline_id="pipeline-123")
@@ -97,10 +112,12 @@ class TestInMemoryDB:
         assert retrieved is not None
         assert retrieved.id == created.id
         assert retrieved.pipeline_id == "pipeline-123"
+
     def test_get_run_not_exists(self):
         """Test getting a non-existent run."""
         result = self.db.get_run("non-existent-id")
         assert result is None
+
     def test_update_run_exists(self):
         """Test updating an existing run."""
         original = Run(pipeline_id="pipeline-123")
@@ -121,20 +138,26 @@ class TestInMemoryDB:
         # Verify it's updated in storage
         retrieved = self.db.get_run(created.id)
         assert retrieved.status == RunStatus.running
+
     def test_update_run_not_exists(self):
         """Test updating a non-existent run."""
         run = Run(pipeline_id="pipeline-123")
         result = self.db.update_run("non-existent-id", run)
         assert result is None
+
+
 class TestInMemoryDBThreadSafety:
     """Test thread safety of InMemoryDB operations."""
+
     def setup_method(self):
         """Set up fresh DB instance for each test."""
         self.db = InMemoryDB()
         self.results = []
         self.errors = []
+
     def test_concurrent_pipeline_creation(self):
         """Test concurrent pipeline creation is thread-safe."""
+
         def create_pipeline(name_suffix):
             try:
                 pipeline = Pipeline(
@@ -145,6 +168,7 @@ class TestInMemoryDBThreadSafety:
                 self.results.append(result)
             except Exception as e:
                 self.errors.append(e)
+
         # Create 10 threads that create pipelines concurrently
         threads = []
         for i in range(10):
@@ -163,6 +187,7 @@ class TestInMemoryDBThreadSafety:
         # Verify all pipelines have unique IDs
         ids = [p.id for p in self.results]
         assert len(set(ids)) == 10  # All unique
+
     def test_concurrent_read_write_operations(self):
         """Test concurrent read and write operations are thread-safe."""
         # Create initial pipeline
@@ -170,6 +195,7 @@ class TestInMemoryDBThreadSafety:
             name="initial", repo_url="https://github.com/example/repo"
         )
         self.db.create_pipeline(initial_pipeline)
+
         def reader():
             """Thread that reads pipelines repeatedly."""
             try:
@@ -179,6 +205,7 @@ class TestInMemoryDBThreadSafety:
                     time.sleep(0.001)  # Small delay
             except Exception as e:
                 self.errors.append(e)
+
         def writer():
             """Thread that creates pipelines repeatedly."""
             try:
@@ -190,6 +217,7 @@ class TestInMemoryDBThreadSafety:
                     time.sleep(0.005)  # Small delay
             except Exception as e:
                 self.errors.append(e)
+
         # Start reader and writer threads
         reader_thread = threading.Thread(target=reader)
         writer_thread = threading.Thread(target=writer)
@@ -202,11 +230,13 @@ class TestInMemoryDBThreadSafety:
         # Final pipeline count should be initial + 10 written
         final_count = len(self.db.list_pipelines())
         assert final_count == 11
+
     def test_concurrent_run_updates(self):
         """Test concurrent run updates are thread-safe."""
         # Create initial run
         run = Run(pipeline_id="pipeline-123")
         created = self.db.create_run(run)
+
         def update_run_logs(thread_id):
             """Thread that updates run logs."""
             try:
@@ -218,6 +248,7 @@ class TestInMemoryDBThreadSafety:
                     time.sleep(0.001)
             except Exception as e:
                 self.errors.append(e)
+
         # Start multiple threads updating the same run
         threads = []
         for i in range(5):

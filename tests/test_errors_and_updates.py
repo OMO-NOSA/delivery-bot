@@ -1,25 +1,33 @@
 from fastapi.testclient import TestClient
+
 from api.main import app
+
+
 class TestNotFoundErrors:
     """Test 404 error handling for various endpoints."""
+
     def setup_method(self):
         """Set up test client for each test."""
         self.client = TestClient(app)
+
     def test_get_nonexistent_pipeline(self):
         """Test getting a pipeline that doesn't exist returns 404."""
         response = self.client.get("/pipelines/does-not-exist")
         assert response.status_code == 404
         assert response.json()["detail"] == "Pipeline not found"
+
     def test_delete_nonexistent_pipeline(self):
         """Test deleting a pipeline that doesn't exist returns 404."""
         response = self.client.delete("/pipelines/nope")
         assert response.status_code == 404
         # Note: delete endpoint returns 404 without specific detail message
+
     def test_get_nonexistent_run(self):
         """Test getting a run that doesn't exist returns 404."""
         response = self.client.get("/runs/unknown")
         assert response.status_code == 404
         # Should return 404 for unknown run ID
+
     def test_update_nonexistent_pipeline(self):
         """Test updating a pipeline that doesn't exist returns 404."""
         update_payload = {
@@ -30,16 +38,21 @@ class TestNotFoundErrors:
         response = self.client.put("/pipelines/nonexistent-id", json=update_payload)
         assert response.status_code == 404
         assert response.json()["detail"] == "Pipeline not found"
+
     def test_trigger_nonexistent_pipeline(self):
         """Test triggering a pipeline that doesn't exist returns 404."""
         response = self.client.post("/pipelines/nonexistent-id/trigger")
         assert response.status_code == 404
         assert response.json()["detail"] == "Pipeline not found"
+
+
 class TestPipelineUpdates:
     """Test pipeline update functionality."""
+
     def setup_method(self):
         """Set up test client for each test."""
         self.client = TestClient(app)
+
     def test_update_pipeline_success(self):
         """Test successfully updating an existing pipeline."""
         # Create initial pipeline
@@ -71,6 +84,7 @@ class TestPipelineUpdates:
         assert (
             updated_data["updated_at"] != original_created_at
         )  # Should have new updated_at
+
     def test_update_pipeline_with_new_steps(self):
         """Test updating a pipeline with completely different steps."""
         # Create initial pipeline
@@ -110,6 +124,7 @@ class TestPipelineUpdates:
         assert updated_data["steps"][0]["name"] == "new-step-1"
         assert updated_data["steps"][1]["type"] == "build"
         assert updated_data["steps"][2]["type"] == "deploy"
+
     def test_update_pipeline_repo_url(self):
         """Test updating a pipeline's repository URL."""
         # Create initial pipeline
@@ -130,11 +145,15 @@ class TestPipelineUpdates:
         assert update_response.status_code == 200
         updated_data = update_response.json()
         assert str(updated_data["repo_url"]) == "https://github.com/example/new-repo"
+
+
 class TestValidationErrors:
     """Test validation error handling for invalid requests."""
+
     def setup_method(self):
         """Set up test client for each test."""
         self.client = TestClient(app)
+
     def test_validation_error_build_step_missing_dockerfile(self):
         """Test validation error for build step missing dockerfile."""
         bad_payload = {
@@ -149,6 +168,7 @@ class TestValidationErrors:
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("dockerfile" in str(error).lower() for error in errors)
+
     def test_validation_error_build_step_missing_ecr_repo(self):
         """Test validation error for build step missing ECR repo."""
         bad_payload = {
@@ -163,6 +183,7 @@ class TestValidationErrors:
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("ecr_repo" in str(error).lower() for error in errors)
+
     def test_validation_error_build_step_missing_both_fields(self):
         """Test validation error for build step missing both required fields."""
         bad_payload = {
@@ -175,6 +196,7 @@ class TestValidationErrors:
         }
         response = self.client.post("/pipelines", json=bad_payload)
         assert response.status_code == 422
+
     def test_validation_error_deploy_step_missing_manifest(self):
         """Test validation error for deploy step missing manifest."""
         bad_payload = {
@@ -186,6 +208,7 @@ class TestValidationErrors:
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("manifest" in str(error).lower() for error in errors)
+
     def test_validation_error_run_step_missing_command(self):
         """Test validation error for run step missing command."""
         bad_payload = {
@@ -197,6 +220,7 @@ class TestValidationErrors:
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("command" in str(error).lower() for error in errors)
+
     def test_validation_error_invalid_step_type(self):
         """Test validation error for invalid step type."""
         bad_payload = {
@@ -206,6 +230,7 @@ class TestValidationErrors:
         }
         response = self.client.post("/pipelines", json=bad_payload)
         assert response.status_code == 422
+
     def test_validation_error_invalid_repo_url(self):
         """Test validation error for invalid repository URL."""
         bad_payload = {
@@ -215,6 +240,7 @@ class TestValidationErrors:
         }
         response = self.client.post("/pipelines", json=bad_payload)
         assert response.status_code == 422
+
     def test_validation_error_missing_required_fields(self):
         """Test validation error for missing required fields."""
         # Missing name

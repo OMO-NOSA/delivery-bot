@@ -14,44 +14,54 @@ Commands:
 Author: Nosa Omorodion
 Version: 0.2.0
 """
+
 import json
 import logging
 import os
 import time
 from typing import Any, Dict, Optional
+
 import requests
 import typer
 from rich import box
 from rich.console import Console
 from rich.table import Table
+
 app = typer.Typer(help="CLI for interacting with the Delivery-Bot API")
 console = Console()
 # Configuration
 DEFAULT_BASE = os.getenv("DELIVERY_BOT_API_URL", "http://localhost:8080")
 DEFAULT_TIMEOUT = int(os.getenv("DELIVERY_BOT_TIMEOUT", "10"))
 MAX_WATCH_TIME = int(os.getenv("DELIVERY_BOT_MAX_WATCH_TIME", "300"))  # 5 minutes
+
+
 def _base_url(base: Optional[str]) -> str:
     """Get the base URL for API requests."""
     return base or DEFAULT_BASE
+
+
 def _setup_logging(verbose: bool = False) -> None:
     """Setup logging configuration."""
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
-        level=level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
+
+
 class APIClient:
     """Centralized API client for handling HTTP requests."""
+
     def __init__(self, base_url: str, timeout: int = DEFAULT_TIMEOUT):
         self.base_url = base_url
         self.timeout = timeout
         self.session = requests.Session()
+
     def _make_request(
         self,
         method: str,
         endpoint: str,
         json_data: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs,
     ) -> requests.Response:
         """
         Make an HTTP request to the API.
@@ -86,18 +96,28 @@ class APIClient:
             # Log the full exception for debugging
             logging.debug(f"API request failed: {e}", exc_info=True)
             raise
+
     def get(self, endpoint: str, **kwargs) -> requests.Response:
         """Make a GET request."""
         return self._make_request("GET", endpoint, **kwargs)
-    def post(self, endpoint: str, json_data: Optional[Dict[str, Any]] = None, **kwargs) -> requests.Response:
+
+    def post(
+        self, endpoint: str, json_data: Optional[Dict[str, Any]] = None, **kwargs
+    ) -> requests.Response:
         """Make a POST request."""
         return self._make_request("POST", endpoint, json_data, **kwargs)
-    def put(self, endpoint: str, json_data: Optional[Dict[str, Any]] = None, **kwargs) -> requests.Response:
+
+    def put(
+        self, endpoint: str, json_data: Optional[Dict[str, Any]] = None, **kwargs
+    ) -> requests.Response:
         """Make a PUT request."""
         return self._make_request("PUT", endpoint, json_data, **kwargs)
+
     def delete(self, endpoint: str, **kwargs) -> requests.Response:
         """Make a DELETE request."""
         return self._make_request("DELETE", endpoint, **kwargs)
+
+
 def _load_pipeline_config(config_path: str) -> Dict[str, Any]:
     """
     Load pipeline configuration from JSON file.
@@ -115,7 +135,11 @@ def _load_pipeline_config(config_path: str) -> Dict[str, Any]:
     except FileNotFoundError:
         raise FileNotFoundError(f"Configuration file '{config_path}' not found")
     except json.JSONDecodeError as e:
-        raise json.JSONDecodeError(f"Invalid JSON in configuration file '{config_path}': {e}", e.doc, e.pos)
+        raise json.JSONDecodeError(
+            f"Invalid JSON in configuration file '{config_path}': {e}", e.doc, e.pos
+        )
+
+
 def _handle_api_error(error: requests.RequestException, operation: str) -> None:
     """
     Handle API errors consistently.
@@ -123,17 +147,23 @@ def _handle_api_error(error: requests.RequestException, operation: str) -> None:
         error: The request exception that occurred
         operation: Description of the operation that failed
     """
-    if hasattr(error, 'response') and error.response is not None:
-        console.print(f"[red]API Error ({operation}):[/red] {error.response.status_code} - {error}")
+    if hasattr(error, "response") and error.response is not None:
+        console.print(
+            f"[red]API Error ({operation}):[/red] {error.response.status_code} - {error}"
+        )
     else:
         console.print(f"[red]API Error ({operation}):[/red] {error}")
     # Log full exception for debugging
     logging.debug(f"API error during {operation}", exc_info=True)
+
+
 @app.command("create")
 def create_pipeline(
     config: str = typer.Argument(..., help="Path to JSON pipeline file"),
     base: Optional[str] = typer.Option(None, "--base", "-b", help="Base API URL"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose logging"
+    ),
 ) -> None:
     """Create a new pipeline from a JSON configuration file."""
     _setup_logging(verbose)
@@ -149,10 +179,14 @@ def create_pipeline(
     except requests.RequestException as e:
         _handle_api_error(e, "pipeline creation")
         raise typer.Exit(1)
+
+
 @app.command("list")
 def list_pipelines(
     base: Optional[str] = typer.Option(None, "--base", "-b", help="Base API URL"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose logging"
+    ),
 ) -> None:
     """List all available pipelines."""
     _setup_logging(verbose)
@@ -182,11 +216,15 @@ def list_pipelines(
     except requests.RequestException as e:
         _handle_api_error(e, "listing pipelines")
         raise typer.Exit(1)
+
+
 @app.command("get")
 def get_pipeline(
     pipeline_id: str = typer.Argument(..., help="Pipeline ID to retrieve"),
     base: Optional[str] = typer.Option(None, "--base", "-b", help="Base API URL"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose logging"
+    ),
 ) -> None:
     """Get detailed information about a specific pipeline."""
     _setup_logging(verbose)
@@ -197,11 +235,15 @@ def get_pipeline(
     except requests.RequestException as e:
         _handle_api_error(e, f"retrieving pipeline {pipeline_id}")
         raise typer.Exit(1)
+
+
 @app.command("delete")
 def delete_pipeline(
     pipeline_id: str = typer.Argument(..., help="Pipeline ID to delete"),
     base: Optional[str] = typer.Option(None, "--base", "-b", help="Base API URL"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose logging"
+    ),
 ) -> None:
     """Delete a pipeline by ID."""
     _setup_logging(verbose)
@@ -215,12 +257,14 @@ def delete_pipeline(
     except requests.RequestException as e:
         _handle_api_error(e, f"deleting pipeline {pipeline_id}")
         raise typer.Exit(1)
+
+
 def _update_pipeline_common(
     pipeline_id: str,
     config_path: str,
     base: Optional[str],
     verbose: bool,
-    operation: str
+    operation: str,
 ) -> None:
     """
     Common logic for pipeline update operations.
@@ -247,20 +291,28 @@ def _update_pipeline_common(
     except requests.RequestException as e:
         _handle_api_error(e, f"pipeline {operation}")
         raise typer.Exit(1)
+
+
 @app.command("update")
 def update_pipeline(
     pipeline_id: str = typer.Argument(..., help="Pipeline ID to update"),
     config: str = typer.Argument(..., help="Path to JSON pipeline file"),
     base: Optional[str] = typer.Option(None, "--base", "-b", help="Base API URL"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose logging"
+    ),
 ) -> None:
     """Update an existing pipeline with new configuration."""
     _update_pipeline_common(pipeline_id, config, base, verbose, "update")
+
+
 @app.command("trigger")
 def trigger(
     pipeline_id: str = typer.Argument(..., help="Pipeline ID to trigger"),
     base: Optional[str] = typer.Option(None, "--base", "-b", help="Base API URL"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose logging"
+    ),
 ) -> None:
     """Trigger execution of a pipeline."""
     _setup_logging(verbose)
@@ -277,12 +329,18 @@ def trigger(
     except requests.RequestException as e:
         _handle_api_error(e, f"triggering pipeline {pipeline_id}")
         raise typer.Exit(1)
+
+
 @app.command("watch")
 def watch(
     run_id: str = typer.Argument(..., help="Run ID to watch"),
     base: Optional[str] = typer.Option(None, "--base", "-b", help="Base API URL"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
-    max_time: Optional[int] = typer.Option(None, "--max-time", "-t", help="Maximum watch time in seconds"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose logging"
+    ),
+    max_time: Optional[int] = typer.Option(
+        None, "--max-time", "-t", help="Maximum watch time in seconds"
+    ),
 ) -> None:
     """Watch a pipeline run in real-time."""
     _setup_logging(verbose)
@@ -298,7 +356,9 @@ def watch(
         while status in ("pending", "running"):
             # Check if we've exceeded max time
             if time.time() - start_time > max_watch_time:
-                console.print(f"[yellow]Maximum watch time ({max_watch_time}s) exceeded. Exiting.[/yellow]")
+                console.print(
+                    f"[yellow]Maximum watch time ({max_watch_time}s) exceeded. Exiting.[/yellow]"
+                )
                 break
             response = api_client.get(f"/runs/{run_id}")
             run = response.json()
@@ -322,10 +382,14 @@ def watch(
     except requests.RequestException as e:
         _handle_api_error(e, f"watching run {run_id}")
         raise typer.Exit(1)
+
+
 @app.command("status")
 def status(
     base: Optional[str] = typer.Option(None, "--base", "-b", help="Base API URL"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose logging"
+    ),
 ) -> None:
     """Check the health status of the Delivery-Bot API."""
     _setup_logging(verbose)
@@ -336,13 +400,21 @@ def status(
             health_data = response.json()
             console.print("[green]Delivery-Bot API is running[/green]")
             console.print(f"[blue]Base URL:[/blue] {_base_url(base)}")
-            console.print(f"[blue]Version:[/blue] {health_data.get('version', 'unknown')}")
-            console.print(f"[blue]Environment:[/blue] {health_data.get('environment', 'unknown')}")
+            console.print(
+                f"[blue]Version:[/blue] {health_data.get('version', 'unknown')}"
+            )
+            console.print(
+                f"[blue]Environment:[/blue] {health_data.get('environment', 'unknown')}"
+            )
         else:
-            console.print(f"[yellow]API responded with status: {response.status_code}[/yellow]")
+            console.print(
+                f"[yellow]API responded with status: {response.status_code}[/yellow]"
+            )
     except requests.RequestException as e:
         console.print(f"[red]Cannot connect to API:[/red] {e}")
         console.print(f"[blue]Attempted URL:[/blue] {_base_url(base)}")
         raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
