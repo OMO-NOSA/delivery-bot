@@ -4,6 +4,23 @@
 A minimal, production-ready REST API to define and trigger simple CI/CD pipelines, plus a utility CLI.
 Execution is simulated (no real Docker/ECR/Kubernetes) but models realistic interactions and logs.
 
+
+## Technical Design Assumptions
+
+- Only Github repository is used within the Organization for the IDP
+- Data received from users is not to be trusted and must undergo rigorous validation
+- Some operations might take time to complete, requiring a design that handles delayed data loading or asynchronous response.
+- That users will expect data in standardized, easily consumable formats like JSON
+- Pipelines are simple and linear; orchestrations/fan-out/fan-in weren’t required
+- Developers Experience is Key
+- Execution is simulated; logs mimic real steps.
+- In-memory store for this exercise.
+
+## Limitations
+
+- Did not get to implement basic Auth for the APIs
+- jobs execute as async tasks inside the API process; a restart kills in-flight runs (no queue/worker)
+
 ## Features
 - REST API (FastAPI) with OpenAPI docs at `/docs`
 - Endpoints to create, list, get, update, delete pipelines; trigger runs; fetch run status/logs
@@ -189,6 +206,14 @@ Currently, the API doesn't require authentication.
 ---
 
 ## API Endpoints
+
+### Check the API docs 
+
+```bash
+ "http://localhost:8080/docs"
+```
+
+![API Documentation](img/api_docs.png)
 
 ### 1. Health Check
 
@@ -607,14 +632,6 @@ curl -v -X POST "http://localhost:8080/pipelines/YOUR_PIPELINE_ID/trigger"
 ```
 
 ---
-
-## Assumptions
-
-- Only Github repository is used within the Organization
-- Execution is simulated; logs mimic real steps.
-- In-memory store for this exercise.
-- No auth by default.
-
 
 ## Logging
 - `cicd` logger to stdout; level from `APP_LOG_LEVEL` (default `INFO`)
